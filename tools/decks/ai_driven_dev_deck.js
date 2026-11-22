@@ -573,6 +573,165 @@ txt(s, 'AWS 構築なら: Specs に要件、design に構成図、tasks に Terr
 txt(s, '注意: Kiro のクラウドの隔離環境は、既定で外への通信が制限なし(今回のサンドボックスは許可制)。鍵の扱いは同じく慎重に', { x: 0.5, y: 4.75, w: 9, h: 0.4, fontSize: 10.5, color: C.accent3 });
 s.addNotes('AWS には Kiro という AI 開発ツールがあります。VS Code 系のエディタのほか、CLI や Web でも使えます。特徴は、コードを書く前に仕様を作ることで、依頼から requirements、design、tasks の 3 つの Markdown を作り、タスクの順に実装します。プロジェクトの決まりを毎回渡す Steering は、この開発の CLAUDE.md に当たります。保存などのたびに裏で作業を走らせる Hooks は、Claude Code の hooks に当たります。クラウドセッションや自律エージェントは、管理されたクラウドの隔離環境で作業を続ける仕組みで、今回の LLM サンドボックスと同じ考え方です。AWS の構築に使うなら、Specs に要件、design に構成、tasks に Terraform や SAM の作業を分け、前のスライドの流れに乗せます。注意点として、Kiro のクラウドの隔離環境は既定で外への通信に制限が無いので、鍵の扱いは慎重にします。この資料では Kiro を実際には動かしていません。内容は 2026 年 11 月時点の公式ドキュメントで確かめたものです。');
 
+// 11d. Kiro で AWS 構築は楽になる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('Kiro で AWS の構築は楽になる?', { placeholder: 'title' });
+card(s, 0.5, 1.1, 4.35, 3.4, 'kiro easy card');
+card(s, 5.15, 1.1, 4.35, 3.4, 'kiro hard card');
+txt(s, '楽になる工程', { x: 0.75, y: 1.25, w: 3.9, h: 0.35, fontSize: 15, bold: true, color: C.accent5 });
+const kEasy = [
+  ['書く', '依頼から CDK・CloudFormation・Terraform を作る。Powers(CDK/CFn・SAM・Terraform)に手引きと道具が入っている'],
+  ['調べる', 'AWS の MCP サーバーで、ドキュメントや今のリソースを調べながら作る'],
+  ['出す', 'AWS MCP Server のデプロイ手順(SOP)で、CDK を作って CloudFormation でデプロイまで(プレビュー)'],
+];
+kEasy.forEach(([h, b], i) => {
+  const y = 1.7 + i * 0.9;
+  txt(s, h, { x: 0.75, y, w: 0.9, h: 0.3, fontSize: 13, bold: true, color: C.background1 });
+  txt(s, b, { x: 1.6, y, w: 3.1, h: 0.85, fontSize: 10.5 });
+});
+txt(s, '楽にならない・増える工程', { x: 5.4, y: 1.25, w: 3.9, h: 0.35, fontSize: 15, bold: true, color: C.accent3 });
+const kHard = [
+  ['仕様を作る', 'Specs(要件・設計・タスク)を先に作るので、最初の工程は増える。その代わり作り直しが減る'],
+  ['判断する', 'ネットワーク構成・権限・費用は人が決める'],
+  ['確かめる', 'plan の確認と出来上がりの確認は人。「作るより確かめる方が大変」は Kiro でも同じ'],
+];
+kHard.forEach(([h, b], i) => {
+  const y = 1.7 + i * 0.9;
+  txt(s, h, { x: 5.4, y, w: 1.15, h: 0.3, fontSize: 13, bold: true, color: C.background1 });
+  txt(s, b, { x: 6.55, y, w: 2.8, h: 0.85, fontSize: 10.5 });
+});
+txt(s, '速くなるのは「書く・調べる・出す」。決めることと確かめることは人に残る', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('Kiro を使うと、AWS の構築のうち、書く、調べる、出すの 3 つが楽になります。依頼から CDK や CloudFormation、Terraform のコードを作れ、AWS 向けの Powers には手引きと道具がまとめて入っています。AWS の MCP サーバーを使えば、ドキュメントや今のリソースを調べながら作れ、デプロイ手順の SOP を使うと CDK を作って CloudFormation でデプロイするところまで進められます。ただしこれはプレビュー機能です。一方で、Specs を先に作るので最初の工程はむしろ増えます。ネットワーク構成や権限、費用の判断、plan と出来上がりの確認は人に残ります。');
+
+// 11e. 条件と、AWS を変更する 2 つの方法
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('条件はシビア? AWS の変更は Kiro からできる?', { placeholder: 'title' });
+txt(s, '使い始めるのは難しくない。厳しく考えるべきなのは AWS の権限の渡し方', { x: 0.5, y: 1.0, w: 9, h: 0.35, fontSize: 12, color: C.accent1 });
+s.addTable([
+  [{ text: '項目', options: KH }, { text: '条件', options: KH }],
+  [kn('Kiro へのサインイン'), { text: 'GitHub・Google・AWS Builder ID・IAM Identity Center のどれか。会社で使うなら IAM Identity Center が前提' }],
+  [kn('プラン'), { text: '無料枠は月 50 クレジットと少ない。本格的に使うなら有料プラン(会社なら AWS 請求の Enterprise)' }],
+  [kn('AWS への変更'), { text: 'その PC に有効な AWS の認証情報と、変更に足る IAM 権限が要る' }],
+], { x: 0.5, y: 1.4, w: 9.0, colW: [2.0, 7.0], fontSize: 10.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.42, valign: 'middle', objectName: 'kiro cond table' });
+txt(s, 'AWS の変更はできる。方法は 2 つ', { x: 0.5, y: 3.25, w: 9, h: 0.35, fontSize: 13, bold: true, color: C.accent5 });
+card(s, 0.5, 3.65, 4.35, 1.05, 'kiro way1 card');
+card(s, 5.15, 3.65, 4.35, 1.05, 'kiro way2 card');
+hex(s, 0.65, 3.8, 0.4, C.accent1, '1', 'kiro way1 hex');
+hex(s, 5.3, 3.8, 0.4, C.accent1, '2', 'kiro way2 hex');
+txt(s, 'ターミナルの命令で', { x: 1.15, y: 3.75, w: 3.6, h: 0.3, fontSize: 12, bold: true, color: C.background1 });
+txt(s, 'aws・cdk deploy・terraform apply などを実行', { x: 1.15, y: 4.08, w: 3.6, h: 0.55, fontSize: 10.5 });
+txt(s, 'AWS MCP Server 経由で', { x: 5.8, y: 3.75, w: 3.6, h: 0.3, fontSize: 12, bold: true, color: C.background1 });
+txt(s, 'AWS の API を直接呼ぶ。認証は SigV4(MCP Proxy for AWS)か AWS Sign-in の OAuth', { x: 5.8, y: 4.08, w: 3.6, h: 0.55, fontSize: 10.5 });
+txt(s, 'どちらも、認証は Kiro ではなくその PC の AWS の設定(~/.aws・環境変数・IAM ロール)を使う', { x: 0.5, y: 4.8, w: 9, h: 0.35, fontSize: 11, italic: true, color: C.accent2 });
+s.addNotes('Kiro を使い始める条件は難しくありません。サインインは GitHub、Google、AWS Builder ID、IAM Identity Center のどれかで、会社で使うなら IAM Identity Center が前提です。無料枠は月 50 クレジットと少ないので、本格的に使うなら有料プランになります。厳しく考えるべきなのは AWS の権限の渡し方です。AWS の変更は Kiro からできます。方法は 2 つで、ターミナルで aws や cdk deploy、terraform apply を実行する方法と、AWS MCP Server 経由で AWS の API を直接呼ぶ方法です。どちらの場合も、認証は Kiro 自体ではなく、その PC の AWS の設定を使います。');
+
+// 11f. 必要なものと安全のためのおすすめ
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('Kiro で AWS を変更するのに必要なもの', { placeholder: 'title' });
+card(s, 0.5, 1.1, 4.35, 3.75, 'kiro need card');
+card(s, 5.15, 1.1, 4.35, 3.75, 'kiro safe card');
+txt(s, '必要なもの', { x: 0.75, y: 1.25, w: 3.9, h: 0.35, fontSize: 15, bold: true, color: C.accent1 });
+const kNeed = [
+  ['Kiro', 'エディタか CLI と、サインイン用のアカウント'],
+  ['AWS CLI と認証情報', 'SSO(IAM Identity Center)の一時的なものがよい'],
+  ['構築の道具', 'CDK 2.x か Terraform。SAM を使うならその CLI'],
+  ['MCP の設定', '~/.kiro/settings/mcp.json か Powers で入れる'],
+  ['IAM 権限', '作るリソースに必要な分だけ'],
+];
+kNeed.forEach(([h, b], i) => {
+  const y = 1.7 + i * 0.62;
+  hex(s, 0.75, y, 0.36, C.accent1, String(i + 1), 'need hex ' + (i + 1));
+  txt(s, h, { x: 1.2, y: y - 0.04, w: 3.5, h: 0.28, fontSize: 11.5, bold: true, color: C.background1 });
+  txt(s, b, { x: 1.2, y: y + 0.24, w: 3.5, h: 0.3, fontSize: 10 });
+});
+txt(s, '安全のためのおすすめ', { x: 5.4, y: 1.25, w: 3.9, h: 0.35, fontSize: 15, bold: true, color: C.accent3 });
+const kSafe = [
+  '最初は検証用の AWS アカウントで試す',
+  'Kiro に渡す権限は読み取り用。本番への apply は人が承認してから(または CI から)',
+  'AWS Budgets で費用の上限アラートを設定しておく',
+  'Kiro のクラウドの隔離環境は既定で外への通信に制限がない。そこに強い鍵を置かない',
+];
+txt(s, kSafe.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < kSafe.length - 1 } })), { x: 5.4, y: 1.7, w: 3.95, h: 3.0, fontSize: 11.5, paraSpaceAfter: 8 });
+s.addNotes('Kiro から AWS を変更するのに必要なものは 5 つです。Kiro 本体とサインイン用のアカウント、AWS CLI とその PC で有効な認証情報、CDK や Terraform などの構築の道具、AWS MCP Server などの設定、そして作るリソースに必要な分だけの IAM 権限です。認証情報は、IAM Identity Center の一時的なものがおすすめです。安全のためには、最初は検証用のアカウントで試すこと、Kiro に渡す権限は読み取り用にして本番への apply は人が承認してから行うこと、AWS Budgets で費用の上限アラートを設定しておくこと、Kiro のクラウドの隔離環境には強い鍵を置かないことの 4 つをおすすめします。');
+
+// 11g. 設計書も Kiro で作れる?(Specs と日本の設計書)
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('基本設計書・詳細設計書も Kiro で作れる?', { placeholder: 'title' });
+txt(s, '作れる。ただし出るのは「開発用の設計メモ」で、日本の SIer の設計書の形そのものではない。下書きを作らせ、形と中身は人が整える', { x: 0.5, y: 0.98, w: 9, h: 0.45, fontSize: 11.5, color: C.accent1 });
+const specs = [
+  ['requirements.md', 'ユーザーストーリーと受け入れ条件(EARS という決まった書き方)'],
+  ['design.md', '構成・部品・データの形・エラー処理・テストの方針'],
+  ['tasks.md', '実装の手順を、チェックボックス付きの作業に分けたもの'],
+];
+txt(s, 'Kiro が標準で作るもの(Specs)', { x: 0.5, y: 1.45, w: 9, h: 0.3, fontSize: 12.5, bold: true, color: C.background1 });
+specs.forEach(([h, b], i) => {
+  const x = 0.5 + i * 3.05;
+  card(s, x, 1.8, 2.9, 0.95, 'spec card ' + (i + 1));
+  txt(s, h, { x: x + 0.15, y: 1.86, w: 2.6, h: 0.3, fontSize: 12, bold: true, color: C.accent2 });
+  txt(s, b, { x: x + 0.15, y: 2.16, w: 2.6, h: 0.55, fontSize: 9.5 });
+});
+s.addTable([
+  [{ text: '日本の設計書', options: KH }, { text: 'Kiro で近いもの', options: KH }, { text: '足りない部分', options: KH }],
+  [kn('要件定義書'), { text: 'requirements.md' }, { text: '非機能要件(性能・可用性・運用)は頼まないと薄くなる' }],
+  [kn('基本設計書'), { text: 'design.md の構成・方針' }, { text: '表紙・改訂履歴・会社の章立て' }],
+  [kn('詳細設計書・パラメータシート'), { text: 'design.md の一部' }, { text: '1 項目ずつの値の表(サブネット・SG のルール・ALB の設定値など)' }],
+], { x: 0.5, y: 2.9, w: 9.0, colW: [2.4, 2.4, 4.2], fontSize: 10.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.42, valign: 'middle', objectName: 'kiro doc table' });
+s.addNotes('基本設計書や詳細設計書も Kiro で作れます。ただし Kiro が出すのは開発用の設計メモで、日本の SIer でよく使う設計書の形そのものではありません。Kiro が標準で作るのは 3 つの Markdown です。requirements.md はユーザーストーリーと受け入れ条件を EARS という決まった書き方で書いたもの、design.md は構成や部品、データの形、エラー処理、テストの方針、tasks.md は実装の手順をチェックボックス付きの作業に分けたものです。日本の設計書と比べると、requirements.md は要件定義書、design.md の構成と方針は基本設計書に近く、詳細設計書やパラメータシートは design.md の一部に当たります。足りないのは、非機能要件、表紙や改訂履歴や会社の章立て、そして 1 項目ずつの値の表です。');
+
+// 11h. 設計書を会社の形に寄せる
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('設計書を会社の形に寄せるには', { placeholder: 'title' });
+const docHow = [
+  ['Steering にひな形を入れる', '会社の設計書の章立てと書き方を Steering(Markdown)に書いておくと、毎回その形で下書きを作れる'],
+  ['値は「現物」から起こす', '値は AI に考えさせず、IaC のコードと describe 系の結果(aws elbv2 describe-load-balancers など)から機械的に作る。設計書と実物の食い違いを防ぐ'],
+  ['Excel・Word で納める', 'Kiro が書くのは Markdown。pandoc などで Word に、Python などの小さな変換スクリプトで Excel のパラメータシートにする'],
+];
+docHow.forEach(([h, b], i) => {
+  const y = 1.1 + i * 1.02;
+  hex(s, 0.55, y + 0.05, 0.5, C.accent5, String(i + 1), 'dochow hex ' + (i + 1));
+  txt(s, h, { x: 1.2, y, w: 4.6, h: 0.32, fontSize: 13, bold: true, color: C.background1 });
+  txt(s, b, { x: 1.2, y: y + 0.33, w: 4.7, h: 0.66, fontSize: 10 });
+});
+card(s, 6.05, 1.1, 3.45, 2.9, 'doc warn card');
+txt(s, '気をつける点', { x: 6.25, y: 1.22, w: 3.1, h: 0.32, fontSize: 13, bold: true, color: C.accent3 });
+const docWarn = [
+  { h: '人の確認が要る', b: '設計書は合意と承認のための書類。AI の下書きには、存在しない設定項目や古い仕様など、もっともらしい間違いが混ざる。レビューは省けない' },
+  { h: '秘密は書かせない', b: 'アカウント ID・IP 設計・鍵などの機密を、そのまま外部の AI に渡してよいかは会社のルールを確認' },
+];
+docWarn.forEach((w, i) => {
+  const y = 1.62 + i * 1.18;
+  txt(s, w.h, { x: 6.25, y, w: 3.1, h: 0.3, fontSize: 11.5, bold: true, color: C.background1 });
+  txt(s, w.b, { x: 6.25, y: y + 0.3, w: 3.1, h: 0.85, fontSize: 9.5 });
+});
+txt(s, 'このラボでも実際に試した(次のスライド): ALB の模擬装置の describe の出力から、基本設計書とパラメータシートを起こす', { x: 0.5, y: 4.2, w: 9, h: 0.4, fontSize: 11 });
+txt(s, 'AI は下書きと転記を速くする。中身の正しさを決めるのは人と「現物」', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('Kiro の設計メモを会社の設計書の形に寄せる方法は 3 つです。まず、会社の設計書の章立てと書き方を Steering に書いておくと、毎回その形で下書きを作れます。次に、パラメータシートの値は AI に考えさせず、IaC のコードや aws elbv2 describe-load-balancers のような describe 系の命令の結果から機械的に起こします。これで設計書と実物の食い違いを防げます。最後に、Kiro が書くのは Markdown なので、Word は pandoc などで、Excel のパラメータシートは小さな変換スクリプトで作ります。気をつける点は 2 つです。設計書は合意と承認のための書類なので、AI の下書きに混ざるもっともらしい間違いを人がレビューする必要があります。また、アカウント ID や IP 設計、鍵などの機密を外部の AI に渡してよいかは、会社のルールで確かめてください。');
+
+// 11i. このラボで試した: 現物から設計書を起こす
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('ラボで試した: 現物から設計書を起こす', { placeholder: 'title' });
+s.addImage({ path: 'docs/images/design-docs-parameter-sheet.png', x: 0.5, y: 1.05, w: 5.6, h: 2.45, altText: 'describe の出力から自動で作ったパラメータシート(Excel)。ターゲットグループ・ターゲット・ルールの表', objectName: 'param sheet image' });
+txt(s, 'できたパラメータシート(Excel)。値はすべて describe の出力から', { x: 0.5, y: 3.55, w: 5.6, h: 0.3, fontSize: 9.5, color: C.accent6 });
+const tried = [
+  ['組む', 'aws-cli の構文で ALB を作る(web-tg・api-tg、/api/* のルール)'],
+  ['確かめる', '本物の HTTP で /index.html は web1・web2 に交互、/api/* は api1'],
+  ['起こす', 'describe を読み、基本設計書(Markdown)とパラメータシート(Excel)を自動で作る'],
+];
+tried.forEach(([h, b], i) => {
+  const y = 1.1 + i * 0.85;
+  hex(s, 6.35, y, 0.45, C.accent1, String(i + 1), 'tried hex ' + (i + 1));
+  txt(s, h, { x: 6.9, y: y - 0.03, w: 2.6, h: 0.3, fontSize: 12.5, bold: true, color: C.background1 });
+  txt(s, b, { x: 6.9, y: y + 0.27, w: 2.6, h: 0.55, fontSize: 9.5 });
+});
+card(s, 0.5, 3.95, 9.0, 0.95, 'tried note card');
+txt(s, [
+  { text: '基本設計書: ', options: { bold: true, color: C.accent5 } },
+  { text: '構成図・負荷分散・ルール・ヘルスチェックの方針は値から組み立て、目的と範囲・非機能要件・確認事項は「人が書く」欄に。', options: { breakLine: true } },
+  { text: '道具: ', options: { bold: true, color: C.accent5 } },
+  { text: 'tools/design_docs/alb_design_docs.py。呼ぶのは describe だけ(読み取り)。--lab はラボ、--aws は本物の AWS(こちらは未確認)' },
+], { x: 0.7, y: 4.03, w: 8.6, h: 0.82, fontSize: 10.5 });
+s.addNotes('前のスライドの「値は現物から起こす」を、このラボで実際にやりました。aws-cli の構文で ALB を組み、Web 用と API 用の 2 つのターゲットグループと、/api/ を API 側へ送るルールを作りました。本物の HTTP で、/index.html は web1 と web2 に交互に、/api/ は api1 に振り分けられることを確かめてから、describe の出力を読んで基本設計書とパラメータシートを自動で作りました。値はすべて describe から転記するので、設計書と実物が食い違いません。基本設計書のうち、構成図や方針は値から組み立て、目的や非機能要件は人が書く欄として残しています。同じ道具は本物の AWS にも向けられるように作りましたが、そちらはまだ試していません。');
+
 // 12. 次の一手
 s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'まとめ' });
 s.addText('次の一手', { placeholder: 'title' });

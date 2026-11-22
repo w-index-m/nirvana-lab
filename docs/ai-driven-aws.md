@@ -60,6 +60,54 @@ Kiro は AWS の AI 開発ツールです(VS Code 系の Code OSS をもとに�
 [SD Times: Amazon launches spec-driven AI IDE, Kiro](https://sdtimes.com/ai/amazon-launches-spec-driven-ai-ide-kiro/)。
 版の番号や提供範囲(プランごとの自律エージェントなど)はよく変わるので、使う前に最新の Docs で確かめてください。
 
+## Kiro で AWS の構築は楽になるか・条件・必要なもの
+
+(2026-11-22 時点の公式情報で確かめた範囲。Kiro は実際には動かしていない)
+
+**楽になる工程**: 書く(CDK・CloudFormation・Terraform。Powers に CDK/CloudFormation・SAM・Terraform 向けの手引きと道具)、
+調べる(AWS の MCP サーバーでドキュメントや今のリソース)、出す(AWS MCP Server のデプロイ手順 SOP で CDK を作り CloudFormation でデプロイ、プレビュー)。
+**楽にならない・増える工程**: Specs を先に作る分、最初の工程は増える(作り直しは減る)。ネットワーク構成・権限・費用の判断と、plan・出来上がりの確認は人に残る。
+
+**条件**: 使い始めるのは難しくない。厳しく考えるべきなのは AWS の権限の渡し方。
+
+| 項目 | 条件 |
+|---|---|
+| Kiro へのサインイン | GitHub・Google・AWS Builder ID・IAM Identity Center のどれか。会社で使うなら IAM Identity Center が前提 |
+| プラン | 無料枠は月 50 クレジットと少ない。本格的に使うなら有料プラン(会社なら AWS 請求の Enterprise) |
+| AWS への変更 | その PC に有効な AWS の認証情報と、変更に足る IAM 権限が要る |
+
+**AWS の変更は Kiro からできる**(方法は 2 つ): ターミナルの命令(`aws`・`cdk deploy`・`terraform apply` など)、
+AWS MCP Server 経由(認証は SigV4 を MCP Proxy for AWS で、または AWS Sign-in の OAuth)。どちらも認証は Kiro ではなく、
+その PC の AWS の設定(`~/.aws`・環境変数・IAM ロール)を使う。
+
+**必要なもの**: Kiro(エディタか CLI)とサインイン用のアカウント / AWS CLI とその PC で有効な認証情報(SSO の一時的なものがよい)/
+CDK 2.x か Terraform(SAM を使うならその CLI)/ MCP の設定(`~/.kiro/settings/mcp.json` か Powers)/ 作るリソースに必要な分だけの IAM 権限。
+
+**安全のためのおすすめ**: 最初は検証用の AWS アカウントで試す / Kiro に渡す権限は読み取り用、本番への apply は人が承認してから(または CI から)/
+AWS Budgets で費用の上限アラート / Kiro のクラウドの隔離環境(既定で外への通信に制限なし)に強い鍵を置かない。
+
+## 基本設計書・詳細設計書も Kiro で作れるか
+
+作れる。ただし出るのは開発用の設計メモ(Markdown の `requirements.md`・`design.md`・`tasks.md`)で、日本の SIer の設計書の形そのものではない。
+
+| 日本の設計書 | Kiro で近いもの | 足りない部分 |
+|---|---|---|
+| 要件定義書 | requirements.md(EARS 形式の受け入れ条件) | 非機能要件(性能・可用性・運用)は頼まないと薄くなる |
+| 基本設計書 | design.md の構成・方針 | 表紙・改訂履歴・会社の章立て |
+| 詳細設計書・パラメータシート | design.md の一部 | 1 項目ずつの値の表(サブネット・SG のルール・ALB の設定値など) |
+
+会社の形に寄せる: Steering に章立てと書き方を入れる / 値は AI に考えさせず IaC のコードと describe の結果から機械的に起こす /
+Word は pandoc など、Excel は小さな変換スクリプトで。気をつける: レビューは省けない、機密を外部の AI に渡してよいかは社内ルールで確認。
+
+**ラボで実際に試した**: ALB の模擬装置の describe の出力から、基本設計書とパラメータシート(Excel)を自動で作った →
+`docs/design-docs-from-describe.md`(道具は `tools/design_docs/alb_design_docs.py`、出力は `docs/design-samples/shop-alb/`)。
+
+出典(追加分): [AWS MCP Server の Deployment SOPs](https://docs.aws.amazon.com/de_de/aws-mcp/latest/userguide/agent-sops-deployment.html)、
+[Getting started with the AWS MCP Server](https://docs.aws.amazon.com/de_de/agent-toolkit/latest/userguide/getting-started-aws-mcp-server.md)、
+[AWS IaC MCP Server の紹介](https://aws.amazon.com/blogs/devops/introducing-the-aws-infrastructure-as-code-mcp-server-ai-powered-cdk-and-cloudformation-assistance)、
+[HashiCorp の Terraform power](https://www.hashicorp.com/blog/hashicorp-is-a-kiro-powers-launch-partner)、
+[Kiro の Authentication](https://kiro.dev/docs/getting-started/authentication/)、[Kiro FAQ](https://kiro.dev/faq/index)、[Kiro Pricing](https://kiro.dev/pricing/index)。
+
 ## 次の一手(提案)
 
 このラボの ALB の模擬装置を相手に、Terraform の AWS プロバイダーを向けて `plan`/`apply` まで通すと、本物の AWS を使わずに上の流れを一通り試せます。

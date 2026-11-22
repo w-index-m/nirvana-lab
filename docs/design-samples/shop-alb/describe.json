@@ -1,0 +1,137 @@
+{
+  "meta": {
+    "date": "2026-11-22",
+    "source": "ラボの模擬 ALB(DD-ALB)"
+  },
+  "data": {
+    "load_balancers": [
+      {
+        "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/shop-alb/4ffa6fffc73a9ffb",
+        "LoadBalancerName": "shop-alb",
+        "Scheme": "internet-facing",
+        "Type": "application",
+        "DNSName": "shop-alb-c73a9ffb.shop-alb.elb.amazonaws.com",
+        "State": {
+          "Code": "active"
+        }
+      }
+    ],
+    "target_groups": [
+      {
+        "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/web-tg/78000672b68e50f3",
+        "TargetGroupName": "web-tg",
+        "Protocol": "HTTP",
+        "Port": 8080,
+        "VpcId": "vpc-0123456789abcdef0",
+        "TargetType": "ip",
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckPort": "traffic-port",
+        "HealthCheckPath": "/index.html",
+        "HealthCheckIntervalSeconds": 15,
+        "HealthCheckTimeoutSeconds": 5,
+        "HealthyThresholdCount": 3,
+        "UnhealthyThresholdCount": 3,
+        "Matcher": {
+          "HttpCode": "200"
+        }
+      },
+      {
+        "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api-tg/5e1c44141b9a0668",
+        "TargetGroupName": "api-tg",
+        "Protocol": "HTTP",
+        "Port": 8080,
+        "VpcId": "vpc-0123456789abcdef0",
+        "TargetType": "ip",
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckPort": "traffic-port",
+        "HealthCheckPath": "/",
+        "HealthCheckIntervalSeconds": 30,
+        "HealthCheckTimeoutSeconds": 5,
+        "HealthyThresholdCount": 3,
+        "UnhealthyThresholdCount": 3,
+        "Matcher": {
+          "HttpCode": "200"
+        }
+      }
+    ],
+    "target_health": {
+      "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/web-tg/78000672b68e50f3": [
+        {
+          "Target": {
+            "Id": "10.96.1.11",
+            "Port": 8080
+          },
+          "TargetHealth": {
+            "State": "healthy"
+          },
+          "HealthCheckPort": "traffic-port"
+        },
+        {
+          "Target": {
+            "Id": "10.96.1.12",
+            "Port": 8080
+          },
+          "TargetHealth": {
+            "State": "healthy"
+          },
+          "HealthCheckPort": "traffic-port"
+        }
+      ],
+      "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api-tg/5e1c44141b9a0668": [
+        {
+          "Target": {
+            "Id": "10.96.2.21",
+            "Port": 8080
+          },
+          "TargetHealth": {
+            "State": "healthy"
+          },
+          "HealthCheckPort": "traffic-port"
+        }
+      ]
+    },
+    "listeners": [
+      {
+        "ListenerArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/shop-alb-80/7cde0cd062ab8e2f",
+        "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/shop-alb/4ffa6fffc73a9ffb",
+        "Protocol": "HTTP",
+        "Port": 80
+      }
+    ],
+    "rules": {
+      "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/shop-alb-80/7cde0cd062ab8e2f": [
+        {
+          "RuleArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener-rule/app/rule-62ab8e2f-10/7cdb711a91be3f11",
+          "Priority": "10",
+          "Conditions": [
+            {
+              "Field": "path-pattern",
+              "Values": [
+                "/api/*"
+              ]
+            }
+          ],
+          "Actions": [
+            {
+              "Type": "forward",
+              "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/api-tg/5e1c44141b9a0668"
+            }
+          ],
+          "IsDefault": false
+        },
+        {
+          "RuleArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/shop-alb-80/7cde0cd062ab8e2f/default-rule",
+          "Priority": "default",
+          "Conditions": [],
+          "Actions": [
+            {
+              "Type": "forward",
+              "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/web-tg/78000672b68e50f3"
+            }
+          ],
+          "IsDefault": true
+        }
+      ]
+    }
+  }
+}
