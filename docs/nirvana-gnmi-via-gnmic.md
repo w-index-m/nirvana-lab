@@ -124,7 +124,13 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 
   ![実機 3650 のヴァルハラ(SNMP)](images/nirvana-real-3650-valhalla-links.jpg)
 
-紹介資料 `docs/nirvana-introduction-v2.pptx` に、この3枚のスライド(10〜12枚目)を足し、取り込み方の表の NetFlow を
+- 再起動後の NetFlow: Catalyst を起動し直したあとも、write memory した flow record・exporter・monitor でそのまま届いた。
+  直近 1 時間は 26.9 KB・133 フロー、94.2% が 192.168.1.100 → 192.168.1.1(監視の通信だけ)。前の 15 MB は別の時間帯
+  (期間を 24 時間・7 日にすると保存した過去の分も出る)。224.0.0.5(OSPF)が消えたのは WSL の FRR が止まったため。
+
+  ![実機 3650 の再起動後の NetFlow](images/nirvana-real-3650-flow-after-reboot.jpg)
+
+紹介資料 `docs/nirvana-introduction-v2.pptx` に、この4枚のスライド(10〜13枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
 
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
