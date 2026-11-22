@@ -377,6 +377,41 @@ txt(s, [
 txt(s, '手順書の正しさは、検証環境で実際に通して初めてわかる', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
 s.addNotes('作業手順書や運用手順書も、下書きなら Kiro で作れます。IaC のコードと tasks.md、describe の結果から、コマンドと確認方法の入った手順書を起こせます。事前確認、作業手順、確認方法、切り戻し、日々の運用の章ごとに、Kiro に書かせる中身と、人が確かめることを分けました。特に切り戻しは、作り直しが起きた変更だと戻せないことがあるので、人が確かめます。会社の手順書のひな形を Steering に入れ、値は現物から起こし、検証環境で手順書どおりに一度通してから本番に使ってください。Direct Connect の物理作業は、事業者の手順と合わせる必要があります。');
 
+// ほかの AWS の AI 開発ツール
+pres.addSection({ title: 'ほかの AWS の AI ツール' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
+s.addText('Kiro 以外の AWS の AI 開発ツールとの違い', { placeholder: 'title' });
+s.addTable([
+  [{ text: 'ツール', options: KH }, { text: '何のための道具か', options: KH }, { text: 'Kiro との違い', options: KH }],
+  [kn('Kiro(エディタ・CLI・Web)'), { text: '仕様(Specs)から入って、コード・IaC を作る' }, { text: '—(この資料の主役)' }],
+  [kn('Kiro CLI'), { text: 'ターミナルで使う Kiro' }, { text: 'Amazon Q Developer CLI の後継(2025-11)。q コマンドもそのまま使える' }],
+  [kn('Amazon Q Developer'), { text: '今の IDE に足す補完・チャット。AWS コンソールでの質問・調査' }, { text: '仕様から入る作りは無い。コンソール連携は Q Developer 側の機能' }],
+  [kn('AWS Transform'), { text: '移行・モダナイズ専用(VMware・メインフレーム・.NET)' }, { text: '新しく作る道具ではなく、今あるものを AWS へ移す道具。VMware のネットワーク変換も扱う' }],
+  [kn('AWS DevOps Agent'), { text: '運用・障害対応(原因の調査、改善の提案)' }, { text: '作った後の運用の道具。2026-03 に一般提供' }],
+  [kn('Amazon Bedrock(AgentCore)'), { text: '自分で AI エージェントを作る基盤' }, { text: '道具そのものではなく、道具を作るための部品' }],
+], { x: 0.5, y: 1.05, w: 9.0, colW: [2.4, 3.1, 3.5], fontSize: 9.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.52, valign: 'middle', objectName: 'aws ai tools table' });
+txt(s, '得意な場面が違う: 作る・相談する・移す・守る・自作する', { x: 0.5, y: 4.85, w: 9, h: 0.3, fontSize: 11.5, italic: true, color: C.accent2 });
+s.addNotes('Kiro 以外にも、AWS には AI の開発ツールがいくつかあります。Kiro CLI は、以前の Amazon Q Developer CLI の後継で、2025 年 11 月に切り替わりました。q コマンドもそのまま使えます。Amazon Q Developer は今の IDE に足す補完やチャット、AWS コンソールでの質問や調査の道具で、仕様から入る作りはありません。AWS Transform は VMware やメインフレーム、.NET を AWS へ移すための道具で、VMware のネットワーク変換も扱います。AWS DevOps Agent は作った後の運用、障害の原因調査や改善の提案の道具で、2026 年 3 月に一般提供になりました。Amazon Bedrock の AgentCore は、自分で AI エージェントを作るための基盤です。');
+
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
+s.addText('VPC・DX・ALB・NLB では何を使う?', { placeholder: 'title' });
+const phases = [
+  ['移す', 'AWS Transform', '今の VMware 環境から移すなら、構成の洗い出し・依存関係・ネットワーク設定の変換・移行の順番づけ', C.accent4],
+  ['作る', 'Kiro', '要件・設計 → VPC・DX・ALB・NLB の IaC → plan まで。手順書・設計書の下書き', C.accent1],
+  ['相談する', 'Amazon Q Developer', 'AWS コンソールで「このサブネットの経路は?」などを聞く。今の IDE のまま補完', C.accent5],
+  ['守る', 'AWS DevOps Agent', '障害のときの原因調査、改善の提案(どこまで触れるかは Agent Space で決める)', C.accent3],
+  ['自作する', 'Amazon Bedrock', '会社独自の確認や自動化を AI エージェントにしたいとき(AgentCore)', C.accent2],
+];
+phases.forEach(([h, tool, b, col], i) => {
+  const y = 1.05 + i * 0.75;
+  hex(s, 0.5, y, 0.5, col, String(i + 1), 'phase hex ' + (i + 1));
+  txt(s, h, { x: 1.15, y: y + 0.02, w: 1.1, h: 0.4, fontSize: 13, bold: true, color: C.background1, valign: 'middle' });
+  txt(s, tool, { x: 2.25, y: y + 0.02, w: 2.2, h: 0.4, fontSize: 12, bold: true, color: col, valign: 'middle' });
+  txt(s, b, { x: 4.45, y: y - 0.02, w: 5.05, h: 0.62, fontSize: 10, valign: 'middle' });
+});
+txt(s, 'どれでも同じ: 権限は最小限、本番は人の承認と CI/CD から。DX の物理と契約はどの AI もコードにできない', { x: 0.5, y: 4.88, w: 9, h: 0.28, fontSize: 10, color: C.accent6 });
+s.addNotes('VPC、Direct Connect、ALB、NLB の仕事に当てはめると、使い分けはこうなります。今の VMware 環境から移すなら、AWS Transform で構成の洗い出しやネットワーク設定の変換、移行の順番づけを行います。新しく作る部分は Kiro で要件と設計を作り、IaC を書いて plan まで進めます。日々の相談は AWS コンソールの Amazon Q Developer で、作った後の障害対応は AWS DevOps Agent が担います。会社独自の確認を AI にしたいときは Amazon Bedrock で自作します。どれを使っても、権限は最小限にして、本番は人の承認と CI/CD から反映する、という決まりは同じです。この資料ではこれらのツールを実際には動かしておらず、2026 年 11 月時点の公式情報で整理しています。');
+
 // まとめ
 pres.addSection({ title: 'まとめ' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
@@ -401,7 +436,8 @@ s.addNotes('まとめです。Kiro は AWS 向けの道具がそろった AI 開
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
 s.addText('出典と、確かめていないこと', { placeholder: 'title' });
 const srcs = [
-  'Kiro Docs(CLI・Cloud sessions・Autonomous agent の sandbox・Authentication)、Kiro FAQ・Pricing — kiro.dev',
+  'Kiro Docs(CLI・Cloud sessions・Autonomous agent の sandbox・Authentication・Autopilot・Q からの移行)、Kiro FAQ・Pricing — kiro.dev',
+  'Amazon Q Developer ユーザーガイド(Kiro への移行)・AWS Transform・AWS DevOps Agent の発表 — aws.amazon.com / docs.aws.amazon.com',
   'AWS MCP Server(Deployment SOPs・Getting started) — docs.aws.amazon.com',
   'AWS IaC MCP Server の紹介 — aws.amazon.com/blogs/devops',
   'HashiCorp の Terraform power — hashicorp.com/blog',

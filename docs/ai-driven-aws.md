@@ -183,6 +183,32 @@ Word は pandoc など、Excel は小さな変換スクリプトで。気をつ�
 出典(追加分): [Kiro Docs: Autopilot と Supervised](https://kiro.dev/docs/ide/chat/autopilot/)、[Kiro Docs: First project](https://kiro.dev/docs/getting-started/first-project/index)、
 [Kiro IDE preview の changelog](https://kiro.dev/changelog/ide/0-1/)。
 
+## Kiro 以外の AWS の AI 開発ツールとの違い
+
+| ツール | 何のための道具か | Kiro との違い |
+|---|---|---|
+| Kiro(エディタ・CLI・Web) | 仕様(Specs)から入って、コード・IaC を作る | — |
+| Kiro CLI | ターミナルで使う Kiro | Amazon Q Developer CLI の後継(2025-11)。`q` / `q chat` もそのまま使え、Q CLI は今後は重要なセキュリティ修正のみ |
+| Amazon Q Developer | 今の IDE に足す補完・チャット、AWS コンソールでの質問・調査 | 仕様から入る作りは無い。コンソール連携は Q Developer 側の機能 |
+| AWS Transform | 移行・モダナイズ専用(VMware・メインフレーム・.NET) | 新しく作るのではなく、今あるものを AWS へ移す。VMware のネットワーク変換も扱う |
+| AWS DevOps Agent | 運用・障害対応(原因の調査、改善の提案) | 作った後の運用の道具。2025-12 にプレビュー、2026-03 に一般提供。触れる範囲は Agent Space で決める |
+| Amazon Bedrock(AgentCore) | 自分で AI エージェントを作る基盤 | 道具そのものではなく、道具を作る部品 |
+
+**VPC・DX・ALB・NLB の仕事での使い分け**: 移す(今の VMware 環境から)= AWS Transform / 作る(要件・設計・IaC・plan、手順書・設計書の下書き)= Kiro /
+相談する(コンソールで経路などを聞く)= Amazon Q Developer / 守る(障害の原因調査・改善提案)= AWS DevOps Agent / 自作する(会社独自の確認・自動化)= Amazon Bedrock。
+どれを使っても、権限は最小限・本番は人の承認と CI/CD から、は同じ。Direct Connect の物理と契約はどの AI もコードにできない。
+
+これらのツールは実際には動かしていない(2026-11-22 時点の公式情報で整理)。性能や効果の数字は AWS 自身の発表で、独立した評価ではない。
+
+出典(追加分): [Amazon Q Developer: Kiro への移行](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/upgrade-to-kiro.md)、
+[Kiro: Q からの移行](https://kiro.dev/docs/upgrade-guides/migrating-from-q/)、
+[AWS ブログ: Amazon Q Developer CLI から Kiro CLI へ](https://aws.amazon.com/jp/blogs/news/kiroweeeeeeek-in-japan-day-6-amazon-q-developer-cli-to-kiro-cli)、
+[Kiro IDE・Kiro CLI・Amazon Q Developer の違い](https://dev.to/kirodotdev/understanding-the-differences-kiro-ide-kiro-cli-and-amazon-q-developer-2hib)、
+[AWS Transform](https://aws.amazon.com/transform/)、[AWS Transform の一般提供](https://aws.amazon.com/blogs/migration-and-modernization/aws-transform-generally-available)、
+[AWS DevOps Agent(プレビュー)の発表](https://aws.amazon.com/about-aws/whats-new/2025/12/devops-agent-preview-frontier-agent-operational-excellence)、
+[AWS News Blog: AWS DevOps Agent](https://aws.amazon.com/blogs/aws/aws-devops-agent-helps-you-accelerate-incident-response-and-improve-system-reliability-preview)、
+[Frontier agents](https://aws.amazon.com/ai/frontier-agents)。
+
 ## 次の一手(提案)
 
 このラボの ALB の模擬装置を相手に、Terraform の AWS プロバイダーを向けて `plan`/`apply` まで通すと、本物の AWS を使わずに上の流れを一通り試せます。
