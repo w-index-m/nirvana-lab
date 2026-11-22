@@ -34,7 +34,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 QUICKSTART = HERE / 'gnmi-quickstart.sh'
 STATE_DIR = Path(os.environ.get('NIRVANA_SETUP_DIR', Path.home() / '.nirvana-gnmi'))
-GUI_VERSION = '10'
+GUI_VERSION = '11'
 NETFLOW_PORT = 2055
 SFLOW_PORT = 6343
 NIRVANA_PORT = int(os.environ.get('NIRVANA_PORT', '8091'))
@@ -207,6 +207,29 @@ def port_open(port, host='127.0.0.1'):
         return False
 
 
+SECRETS_FILE = 'nirvana.env'
+
+
+def load_secrets(path=None):
+    """~/.nirvana-gnmi/nirvana.env の KEY=VALUE(CLOUDFLARE_API_TOKEN など)をニルヴァーナに渡す。
+    リポジトリの外に置くので git に載らない。# から始まる行と空行は読まない"""
+    path = Path(path) if path else STATE_DIR / SECRETS_FILE
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8-sig')
+    except OSError:
+        return out
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if re.match(r'^[A-Z][A-Z0-9_]*$', k) and v:
+            out[k] = v
+    return out
+
+
 def start_nirvana(form):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     cfg = STATE_DIR / 'nirvana.yaml'
@@ -226,7 +249,8 @@ def start_nirvana(form):
     log = open(STATE_DIR / 'nirvana.log', 'w', encoding='utf-8')  # noqa: SIM115
     _nirvana['proc'] = subprocess.Popen([sys.executable, str(HERE / 'server.py'), '-c', str(cfg),
                                          '--port', str(NIRVANA_PORT)], cwd=str(HERE), stdout=log, stderr=log,
-                                        env=dict(os.environ, NIRVANA_SNMP_COMMUNITY=form.get('community', '')))
+                                        env=dict(os.environ, **load_secrets(),
+                                                 NIRVANA_SNMP_COMMUNITY=form.get('community', '')))
     (STATE_DIR / 'nirvana.pid').write_text(str(_nirvana['proc'].pid), encoding='utf-8')
     for _ in range(40):
         if _nirvana['proc'].poll() is not None:

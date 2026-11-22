@@ -189,3 +189,13 @@ def test_start_runs_in_background_and_result_is_polled(monkeypatch):
     assert G._job['result'] == {'ok': True, 'log': 'OK'}
     html = G.page({})
     assert "fetch('/api/result')" in html and 'replace(/\\/\\?' not in html
+
+
+def test_secrets_file_is_passed_to_nirvana(tmp_path, monkeypatch):
+    """~/.nirvana-gnmi/nirvana.env の KEY=VALUE(Cloudflare Radar のトークンなど)をニルヴァーナの環境変数に渡す"""
+    f = tmp_path / 'nirvana.env'
+    f.write_text('\ufeff# Cloudflare Radar\nCLOUDFLARE_API_TOKEN = "abc123"\n\nbad key=x\nEMPTY=\nNETLAB_GEOIP_FETCH=1\n',
+                 encoding='utf-8')
+    monkeypatch.setattr(G, 'STATE_DIR', tmp_path)
+    assert G.load_secrets() == {'CLOUDFLARE_API_TOKEN': 'abc123', 'NETLAB_GEOIP_FETCH': '1'}
+    assert G.load_secrets(tmp_path / 'none.env') == {}

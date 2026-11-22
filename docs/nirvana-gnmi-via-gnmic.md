@@ -133,6 +133,14 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 紹介資料 `docs/nirvana-introduction-v2.pptx` に、この4枚のスライド(10〜13枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
 
+版 11: 秘密の値(Cloudflare Radar の API トークンなど)は `%USERPROFILE%\.nirvana-gnmi\nirvana.env`(Linux は
+`~/.nirvana-gnmi/nirvana.env`)に `KEY=VALUE` で書くと、設定画面がニルヴァーナを起動するときに環境変数として渡す
+(`load_secrets`、`#` の行と空行は読まない、BOM 付きでも可)。リポジトリの外なので git に載らない。例:
+
+```
+CLOUDFLARE_API_TOKEN=<Cloudflare のトークン>
+```
+
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
 `no system ignore startupconfig switch all` → `write memory` で `"0"` に戻る(実機で確認)。
 - 「停止」で全部止まります。前に手で起動した gnmic・Prometheus があるときは、「手で起動したものを止める」を押します。
