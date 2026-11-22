@@ -34,9 +34,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 QUICKSTART = HERE / 'gnmi-quickstart.sh'
 STATE_DIR = Path(os.environ.get('NIRVANA_SETUP_DIR', Path.home() / '.nirvana-gnmi'))
-GUI_VERSION = '7'
+GUI_VERSION = '12'
 NETFLOW_PORT = 2055
 SFLOW_PORT = 6343
+SYSLOG_PORT = 514
 NIRVANA_PORT = int(os.environ.get('NIRVANA_PORT', '8091'))
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 PORT_RE = re.compile(r'^[A-Za-z][A-Za-z\-]*\d+(?:/\d+)*(?:\.\d+)?$')
@@ -91,12 +92,15 @@ def quickstart_cmd(action, form=None):
         args += ['--target', ','.join(form['targets']), '--ports', ','.join(form['ports']),
                  '--user', form['user'], '--wait', '90']
         env['GNMI_PASSWORD'] = form['password']
+        if form.get('community'):
+            env['GNMI_SNMP_COMMUNITY'] = form['community']   # snmp_exporter も動かし、ヴァルハラに SNMP を貯める
     if on_windows():
         # Windows の git は改行を CRLF にすることがあるので、中身を LF にして標準入力で渡す。
         # 文字列で渡すと Windows の Python が改行を CRLF に戻すので、バイト列で渡す
         script = QUICKSTART.read_bytes().replace(b'\r\n', b'\n')
         env['WSLENV'] = ':'.join(filter(None, [os.environ.get('WSLENV', ''), 'GNMI_FROM_GUI/u',
-                                                'GNMI_PASSWORD/u' if form else '']))
+                                                'GNMI_PASSWORD/u' if form else '',
+                                                'GNMI_SNMP_COMMUNITY/u' if form and form.get('community') else '']))
         # --cd ~: 呼び出し元の Windows フォルダへ移ろうとして失敗する(chdir ... failed)のを避ける
         return WSL + ['bash', '-s', '--'] + args, script, env
     return ['bash', str(QUICKSTART)] + args, None, env
@@ -174,14 +178,18 @@ def nirvana_config(form):
                       '    interfaces:', '      - {name: eth0}']
             links.append(f'  - {{a: sw{n}, a_if: "{expand_if(p)}", b: {peer}, b_if: eth0}}')
     lines += ['links:'] + links
-    lines += ['sources:', '  prometheus:', '    url: http://127.0.0.1:9090', '    flavor: gnmic',
+    lines += ['sources:', '  prometheus:', '    url: http://127.0.0.1:9090',
+              # SNMP が使えるときは snmp_exporter の値もヴァルハラにある(同じポートは SNMP を優先し、無いところを gNMI で)
+              *(['    flavor: both', '    job: snmp'] if form.get('community') else ['    flavor: gnmic']),
               '    gnmic_job: gnmic']
     # NetFlow v5/v9/IPFIX を UDP 2055、sFlow v5 を UDP 6343 で受ける(装置の送り先をこの PC にすると、NETWORK 画面に通信の粒が出る)
+    # syslog を UDP 514 で直接受ける(装置の `logging host <この PC の IP>`)。AI ログ解析・syslog 観点・リンク断の SYSLOG 経路に使う
+    lines += ['  syslog:', f'    listen: 0.0.0.0:{SYSLOG_PORT}']
     lines += ['  flow:', f'    netflow: {NETFLOW_PORT}', f'    sflow: {SFLOW_PORT}',
               f'    store: "{(STATE_DIR / "flows.db").as_posix()}"', '    keep_days: 30']   # 保存して /flows でまとめる
     if form.get('community'):
         # SNMP で直接: 経路表・CPU(60秒)と流量・IF 状態(10秒)。community は設定に書かず環境変数で渡す
-        lines += ['  snmp:', '    community: ${NIRVANA_SNMP_COMMUNITY}', '    interval: 60',
+        lines += ['  snmp:', '    community: ${NIRVANA_SNMP_COMMUNITY}', '    interval: 30',
                   '    traffic: {interval: 10}']
     return '\n'.join(lines) + '\n'
 
@@ -200,6 +208,29 @@ def port_open(port, host='127.0.0.1'):
             return True
     except OSError:
         return False
+
+
+SECRETS_FILE = 'nirvana.env'
+
+
+def load_secrets(path=None):
+    """~/.nirvana-gnmi/nirvana.env の KEY=VALUE(CLOUDFLARE_API_TOKEN など)をニルヴァーナに渡す。
+    リポジトリの外に置くので git に載らない。# から始まる行と空行は読まない"""
+    path = Path(path) if path else STATE_DIR / SECRETS_FILE
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8-sig')
+    except OSError:
+        return out
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if re.match(r'^[A-Z][A-Z0-9_]*$', k) and v:
+            out[k] = v
+    return out
 
 
 def start_nirvana(form):
@@ -221,7 +252,8 @@ def start_nirvana(form):
     log = open(STATE_DIR / 'nirvana.log', 'w', encoding='utf-8')  # noqa: SIM115
     _nirvana['proc'] = subprocess.Popen([sys.executable, str(HERE / 'server.py'), '-c', str(cfg),
                                          '--port', str(NIRVANA_PORT)], cwd=str(HERE), stdout=log, stderr=log,
-                                        env=dict(os.environ, NIRVANA_SNMP_COMMUNITY=form.get('community', '')))
+                                        env=dict(os.environ, **load_secrets(),
+                                                 NIRVANA_SNMP_COMMUNITY=form.get('community', '')))
     (STATE_DIR / 'nirvana.pid').write_text(str(_nirvana['proc'].pid), encoding='utf-8')
     for _ in range(40):
         if _nirvana['proc'].poll() is not None:
@@ -341,20 +373,31 @@ async function refresh(){
   const b=(n,v)=>`<span class="badge ${v?'on':'off'}">${n} ${v?'動作中':'停止'}</span>`;
   $('badges').innerHTML=b('gnmic',s.gnmic)+b('Prometheus',s.prometheus)+b('ニルヴァーナ',s.nirvana);
   $('open').href=s.nirvana_url;$('open').style.display=s.nirvana?'inline':'none';
-  $('flows').href=s.nirvana_url.replace(/\/\?.*$/,'/flows');$('flows').style.display=s.nirvana?'inline':'none';
+  $('flows').href=s.nirvana_url.split('?')[0].replace(/[/]$/,'')+'/flows';$('flows').style.display=s.nirvana?'inline':'none';
   $('ports_t').innerHTML=s.ports.length?'<tr><th>装置</th><th>ポート</th><th>状態</th><th>受信バイト</th></tr>'+
     s.ports.map(p=>`<tr><td>${p.device}</td><td>${p.port}</td><td>${p.oper}</td><td>${Number(p.in_octets).toLocaleString()}</td></tr>`).join(''):'';
 }
 $('start').onclick=async()=>{
   busy(true);say('準備しています(初回は gnmic・Prometheus の取得で数分かかることがあります)…');
-  try{const r=await post('/api/up',{target:$('target').value,ports:$('ports').value,user:$('user').value,password:$('password').value,community:$('community').value});
-    say((r.ok?'うまくいきました\\n\\n':'うまくいきませんでした\\n\\n')+r.log);
-    if(r.ok&&r.nirvana_url)window.open(r.nirvana_url,'_blank');}
+  try{await post('/api/up',{target:$('target').value,ports:$('ports').value,user:$('user').value,password:$('password').value,community:$('community').value});
+    await waitResult(true);}
   catch(e){say('エラー: '+e)}busy(false);refresh();
 };
+// 結果は裏で作るので、終わるまで取りに行く(画面を開き直しても続きが見える)
+async function waitResult(open){
+  const t0=Date.now();
+  for(;;){
+    let j;try{j=await (await fetch('/api/result')).json()}catch(e){await new Promise(r=>setTimeout(r,3000));continue}
+    if(!j.running){const r=j.result;if(r){say((r.ok?'うまくいきました\\n\\n':'うまくいきませんでした\\n\\n')+r.log);
+      if(open&&r.ok&&r.nirvana_url)window.open(r.nirvana_url,'_blank');}return}
+    say(`準備しています… ${Math.round((Date.now()-t0)/1000)} 秒(初回はダウンロードで数分かかることがあります)`);refresh();
+    await new Promise(r=>setTimeout(r,3000));
+  }
+}
 $('stop').onclick=async()=>{busy(true);const r=await post('/api/down');say(r.log);busy(false);refresh()};
 $('free').onclick=async()=>{busy(true);const r=await post('/api/free');say(r.log);busy(false);refresh()};
 refresh();setInterval(refresh,10000);
+fetch('/api/result').then(r=>r.json()).then(j=>{if(j.running){busy(true);waitResult(false).then(()=>{busy(false);refresh()})}});
 </script></body></html>"""
 
 
@@ -397,23 +440,48 @@ def do_up(body):
                 'nirvana_url': f'http://localhost:{NIRVANA_PORT}/?view=links' if ok2 else None}
 
 
+_job = {'running': False, 'result': None, 'started': None}
+
+
+def start_up(body):
+    """「開始」を裏で動かす(数分かかることがあるので、画面は /api/result を取りに来る)"""
+    with _lock:
+        if _job['running']:
+            return {'started': False, 'running': True}
+        _job.update(running=True, result=None, started=time.time())
+
+    def work():
+        try:
+            r = do_up(body)
+        except Exception as e:  # noqa: BLE001
+            r = {'ok': False, 'log': f'途中で失敗しました: {e}'}
+        _job.update(running=False, result=r)
+    threading.Thread(target=work, daemon=True).start()
+    return {'started': True, 'running': True}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
     def _send(self, code, body, ctype='application/json; charset=utf-8'):
         data = body.encode('utf-8') if isinstance(body, str) else body
-        self.send_response(code)
-        self.send_header('Content-Type', ctype)
-        self.send_header('Content-Length', str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.send_response(code)
+            self.send_header('Content-Type', ctype)
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            pass        # ブラウザが先に切った(画面を閉じた・再読み込みした)
 
     def do_GET(self):
         if self.path == '/' or self.path.startswith('/?'):
             return self._send(200, page(load_defaults()), 'text/html; charset=utf-8')
         if self.path == '/api/status':
             return self._send(200, json.dumps(status(), ensure_ascii=False))
+        if self.path == '/api/result':
+            return self._send(200, json.dumps(dict(_job), ensure_ascii=False))
         self._send(404, '{}')
 
     def do_POST(self):
@@ -423,7 +491,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             body = {}
         if self.path == '/api/up':
-            return self._send(200, json.dumps(do_up(body), ensure_ascii=False))
+            return self._send(200, json.dumps(start_up(body), ensure_ascii=False))
         if self.path == '/api/down':
             ok, log = run_quickstart('down')
             return self._send(200, json.dumps({'ok': ok, 'log': log + '\n' + stop_nirvana()}, ensure_ascii=False))

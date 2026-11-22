@@ -630,3 +630,21 @@ SE が切り替わる、ページのエラーなし(単体版に無い API の 4
 ![EMERGENCY(3段): 右上と左下から斜めの帯](images/cyber-view-eva-emergency.jpg)
 ![情・警のマークの斜めの尾](images/cyber-view-eva-marks.jpg)
 ![スマホ幅: 下の両隅から V 字](images/cyber-view-eva-phone.jpg)
+
+
+## 警報の確認(ACK)と、AI ボタンでの自動解析(2026-11-22)
+
+- **ACK**: 直近10分の未確認の「警」があると、画面下に赤い六角のボタン「警 × N ・ ACK」が出る。押すと
+  `ALERT ACKNOWLEDGED // 警報 確認済` の演出(走査線とグリッチ、効果音 lock)で、NETWORK のパネル・ROUTER LINKS のリンク・
+  Host View の「警」が消える。確認済みの時刻はブラウザの `localStorage`(`cvAckT`)に覚えるだけで、装置もサーバーの判定
+  (SYSTEM STATUS)も変えない。新しい警報はまた出る。放っておいても「警」の印は10分、SYSTEM STATUS は直近5分で戻る。
+- **AI**: AI ボタンで窓を開くと、そのまま解析を始める(時間がかかっても待つ)。解析中は `AI ANALYZING // 解析中` と、
+  手順(ログを集める・重複を省く・パスワードと IP を伏せる・モデルに問い合わせ中・答えを確かめる)と経過秒数を出す。
+
+ラボの本物の画面で確かめた(ボタン → 押す → 消える、AI の自動解析。解析中の表示は応答を8秒遅らせて撮影)。
+
+![ACK ボタン](images/cyber-view-ack-button.jpg)
+![ACK を押したところ](images/cyber-view-ack-cleared.jpg)
+![AI の解析中](images/cyber-view-ai-analyzing.jpg)
+
+実機(3650)で syslog の「警」が立った NETWORK 画面: `images/nirvana-real-3650-network-alert.jpg`(紹介資料 v2 の16枚目)。

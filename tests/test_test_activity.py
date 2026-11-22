@@ -112,7 +112,7 @@ def test_page_has_panel_and_plates_and_standalone_copy_matches():
     page = os.path.join(ROOT, 'static', 'cyber_view.html')
     with open(page, encoding='utf-8') as f:
         s = f.read()
-    for needle in ('id="testpanel"', "'testpanel']", 'function pollTests', '/api/testrun/events?since=',
+    for needle in ('id="testpanel"', "'testpanel'", 'function pollTests', '/api/testrun/events?since=',
                    "'試')", "'TEST FAIL', e.name, 9000, '警'", "includes('404')) testOff = true", 'window.__cvTests'):
         assert needle in s, needle
     assert filecmp.cmp(page, os.path.join(ROOT, 'cyber-view-standalone', 'web', 'cyber_view.html'), shallow=False)

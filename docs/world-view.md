@@ -182,3 +182,13 @@ API の項目がまた変わっても、画面が止まらないようにする�
 
 この作業環境からは `www.ihr.live` にも届かないため、本物の応答での確認はユーザーの PC で行います。
 試験は `tests/test_world_view.py::test_ihr_new_host_and_drops_rejected_params` です。
+
+
+### IHR: 期間は下限と上限の両方が要る(2026-11-22)
+
+移転後の `www.ihr.live` は、`network_delay/alarms` に `timebin__gte` だけを渡すと
+`HTTP 400 {'detail': 'Invalid timebin range. Please provide both timebin__lte and timebin__gte.'}` を返す
+(実機の画面で確認)。`IhrClient.snapshot` は `timebin__lte`(と disco の `starttime__lte`)に今の時刻を足す。
+
+ユーザーの PC(Windows 11、単体版・設定画面 版 11)で、Cloudflare Radar(トークンは `~/.nirvana-gnmi/nirvana.env`)・
+RIPE Atlas・DShield・IIJ IHR の4つが本物のデータで OK になることを確かめた(`docs/images/nirvana-real-world-all-ok.jpg`)。

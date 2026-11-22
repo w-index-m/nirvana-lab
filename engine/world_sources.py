@@ -11,7 +11,7 @@
   Radar  … github.com/cloudflare/api-schemas の openapi.json(/radar/http/top/locations、
            /radar/attacks/layer7/top/attacks、/radar/traffic_anomalies)
   IHR    … github.com/InternetHealthReport/ihr-django(serializers.py / views.py。DRF のページ形式
-           {count, next, results}、network_delay/alarms は timebin__gte が必須)
+           {count, next, results}、network_delay/alarms は timebin__gte と timebin__lte の両方が必須)
 外部へ出られない環境では status に理由が入り、何も描かない(作り物は出さない)。
 """
 import ipaddress
@@ -237,16 +237,18 @@ class IhrClient:
     def snapshot(self, hours=24, now=None):
         now = now or datetime.now(timezone.utc)
         since = (now - timedelta(hours=hours)).strftime('%Y-%m-%dT%H:%M:%S')
+        until = now.strftime('%Y-%m-%dT%H:%M:%S')   # 新 API は下限と上限の両方が要る(片方だと 400 Invalid timebin range)
         out = {'status': 'ok', 'fetched': time.time(), 'hours': hours}
-        rows = self._get('/network_delay/alarms/', timebin__gte=since, startpoint_type='AS',
+        rows = self._get('/network_delay/alarms/', timebin__gte=since, timebin__lte=until, startpoint_type='AS',
                          startpoint_name='|'.join(str(a) for a in self.asns), ordering='-timebin')
         out['delay_alarms'] = [{'t': r.get('timebin'), 'asn': r.get('startpoint_name'),
                                 'as_name': self.asns.get(int(r['startpoint_name'])) if str(r.get('startpoint_name', '')).isdigit() else None,
                                 'to': f"{r.get('endpoint_type', '')}{r.get('endpoint_name', '')}",
                                 'deviation': float(r.get('deviation') or 0)} for r in rows][:50]
-        ev = self._get('/disco/events/', starttime__gte=since, streamname='JP', ordering='-starttime')
-        ev += [e for a in self.asns for e in self._get('/disco/events/', starttime__gte=since, streamname=str(a),
-                                                       ordering='-starttime')][:20]
+        ev = self._get('/disco/events/', starttime__gte=since, starttime__lte=until, streamname='JP',
+                       ordering='-starttime')
+        ev += [e for a in self.asns for e in self._get('/disco/events/', starttime__gte=since, starttime__lte=until,
+                                                       streamname=str(a), ordering='-starttime')][:20]
         seen, uniq = set(), []
         for e in ev:                      # 国(JP)と AS の両方で引くので、同じ事象を1つにまとめる
             k = (e.get('streamname'), e.get('starttime'))
@@ -267,16 +269,18 @@ class WorldState:
 
     def __init__(self):
         self.cloud = CloudRanges()
-        self.radar = {'status': 'off'}
-        self.ihr = {'status': 'off'}
+        # 取得する設定なら、最初の取得が終わるまで「取得中」(以前は「オフ」と出て、起動直後に止まったように見えた)
+        first = {'status': 'pending', 'detail': '起動直後: 最初の取得中'} if self.enabled() else {'status': 'off'}
+        self.radar = dict(first)
+        self.ihr = dict(first)
         self._lock = threading.Lock()
         self._last = 0
         self.cloud_seen = {}     # (provider, region) -> {'bytes', 'flows', 'last', 'service'}
         from .world_geo import DEFAULT_PAIRS, AtlasClient, GeoCity, PeerTracker
         self.geo = GeoCity()
         self.peers = PeerTracker()
-        self.dshield = {'status': 'off'}
-        self.atlas = {'status': 'off', 'paths': []}
+        self.dshield = dict(first)
+        self.atlas = dict(first, paths=[])
         self.atlas_client = AtlasClient()
         self.pairs = [dict(p) for p in DEFAULT_PAIRS]
         self._geo_thread = None

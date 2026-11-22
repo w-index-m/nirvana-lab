@@ -173,8 +173,8 @@ def create_app(cfg, start_collector=True):
     @app.get('/api/traffic/logs')
     def logs(since: float = 0, limit: int = 30, x_session_token: str = Header(None)):
         check(x_session_token)
-        return {'logs': col.logs(since, limit), 'source': 'loki' if col.loki else 'none',
-                'error': col.errors.get('loki'), 'now': time.time()}
+        return {'logs': col.logs(since, limit), 'source': col.log_source(),
+                'error': col.errors.get('loki') or col.errors.get('syslog'), 'now': time.time()}
 
     @app.get('/api/traffic/alerts')
     def alerts(since: int = 0, x_session_token: str = Header(None)):
@@ -244,6 +244,9 @@ def create_app(cfg, start_collector=True):
     def ospf(dest: str = None, x_session_token: str = Header(None)):
         """④ 実機の OSPF 隣接(OSPF-MIB を snmp_exporter → ヴァルハラ経由で)"""
         check(x_session_token)
+        if any(col.snmp.ospf_now.values()):       # SNMP で直接読めていればそれを使う(ヴァルハラが無い構成)
+            from cvs import snmp_ospf
+            return {**snmp_ospf.snapshot(cfg, col.snmp.ospf_now, col.dev_of), 'now': time.time()}
         url, job = need_prom()
         try:
             d = VV.ospf(url, job, cfg, col.dev_of)

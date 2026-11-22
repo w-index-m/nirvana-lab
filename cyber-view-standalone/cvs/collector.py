@@ -15,6 +15,7 @@ from collections import defaultdict, deque
 from . import sources as S
 from .analytics import FLAP_RULE_IDS, RECOVERY, Analytics
 from .link_evidence import norm_if, parse_log_link_event, traps
+from .syslog_receiver import SyslogReceiver
 from . import valhalla as V
 from .valhalla_views import AlertImporter
 
@@ -40,6 +41,9 @@ class Collector:
         self.loki = S.Loki(**src['loki']) if src.get('loki', {}).get('url') else None
         self.zbx = S.Zabbix(**src['zabbix']) if src.get('zabbix', {}).get('url') else None
         self.loki_labels = (src.get('loki') or {}).get('device_labels') or ['device_id', 'host', 'hostname', 'instance']
+        sl = src.get('syslog') or {}
+        self.syslog = SyslogReceiver(sl['listen'], self.on_syslog) if sl.get('listen') else None   # Loki が無くても直接受ける
+        self.unknown_syslog = {}
         # linkDown の trap から、これだけ経っても POLL が up を返し続けるなら、linkUp の trap を取りこぼしたとみなす(秒)
         self.trap_stale_after = float((src.get('snmp_trap') or {}).get('stale_after', TRAP_STALE_AFTER))
         self._stale_traps = {}     # (装置, IF) -> 無効にした linkDown trap の時刻(同じ trap を二度と down に戻さない)
@@ -113,6 +117,20 @@ class Collector:
                 self.sec.on_log(dev, r['msg'], r['t'])
         self._log_until = now
         return n
+
+    def on_syslog(self, ip, msg, t, sev=None):
+        """sources.syslog で直接受けた1行(送信元 IP か本文の装置名で装置を決め、Loki の行と同じ流れに入れる)"""
+        dev = self.dev_of(ip) or self._dev_in_msg(msg)
+        if not dev:
+            self.unknown_syslog[ip] = self.unknown_syslog.get(ip, 0) + 1   # 設定に無い装置から(mgmt_ip を確かめる)
+            return False
+        if self.analytics.record_log(dev, self.devs[dev]['hostname'], msg, t, sev):
+            self.sec.on_log(dev, msg, t)
+            return True
+        return False
+
+    def log_source(self):
+        return '+'.join([x for x, on in (('loki', self.loki), ('syslog', self.syslog)) if on]) or 'none'
 
     def poll_zabbix_problems(self):
         if not self.zbx:
@@ -337,6 +355,12 @@ class Collector:
         return snap
 
     def start(self):
+        if self.syslog:
+            try:
+                self.syslog.start()
+            except OSError as e:
+                self.errors['syslog'] = f'syslog の受け口 {self.syslog.addr[0]}:{self.syslog.addr[1]} を開けません: {e}'
+                self.syslog = None
         spec = (self.cfg.get('sources') or {}).get('snmp_trap', {}).get('listen')
         if spec:
             try:
@@ -357,6 +381,8 @@ class Collector:
 
     def stop(self):
         self._stop.set()
+        if self.syslog:
+            self.syslog.stop()
         self.snmp.stop()
         self.sec.stop()
 
@@ -428,9 +454,9 @@ class Collector:
         warn = [x for x in bad if x['sev'] == 4]
         flaps = [a for a in al if a['rule'] in FLAP_RULE_IDS]
         st = 'crit' if err else 'warn' if (warn or flaps) else 'ok'
-        log_src = 'loki' if self.loki else 'none'
+        log_src = self.log_source()
         cats.append({'key': 'syslog', 'label': 'syslog', 'state': st, 'source': log_src,
-                     'source_error': self.errors.get('loki'),
+                     'source_error': self.errors.get('loki') or self.errors.get('syslog'),
                      'summary': (f'error以上 {len(err)} ・ warning {len(warn)} ・ 全 {len(logs)}件'
                                  + (f' ・ フラップ {len(flaps)}件' if flaps else '')),
                      'details': ([f"フラップ {H(a['src'])}: {a['name']} ({a['detail'][:60]})" for a in flaps[-3:]]

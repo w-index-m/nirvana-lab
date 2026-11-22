@@ -43,7 +43,10 @@ def test_quickstart_cmd_linux_and_windows(monkeypatch):
     argv, stdin, env = G.quickstart_cmd('up', form)
     assert argv[:7] == ['wsl', '--cd', '~', '-e', 'bash', '-s', '--'] and argv[7] == 'up'
     assert isinstance(stdin, bytes) and b'\r' not in stdin and stdin.startswith(b'#!/usr/bin/env bash')
-    assert env['WSLENV'].split(':') == ['FOO', 'GNMI_FROM_GUI/u', 'GNMI_PASSWORD/u'] and 'secret' not in argv
+    assert env['WSLENV'].split(':') == ['FOO', 'GNMI_FROM_GUI/u', 'GNMI_PASSWORD/u', 'GNMI_SNMP_COMMUNITY/u']
+    assert 'secret' not in argv and env['GNMI_SNMP_COMMUNITY'] == 'public'      # 既定 public で snmp_exporter も動かす
+    off = G.parse_form({'target': '192.168.1.1', 'password': 'secret', 'community': ''})
+    assert 'GNMI_SNMP_COMMUNITY' not in G.quickstart_cmd('up', off)[2]
 
 
 def test_nirvana_config_links_each_port_and_loads(tmp_path):
@@ -51,7 +54,9 @@ def test_nirvana_config_links_each_port_and_loads(tmp_path):
     p = tmp_path / 'n.yaml'
     p.write_text(G.nirvana_config(form), encoding='utf-8')
     cfg = C.load(str(p))
-    assert cfg['sources']['prometheus']['flavor'] == 'gnmic'
+    assert cfg['sources']['prometheus']['flavor'] == 'both' and cfg['sources']['prometheus']['job'] == 'snmp'
+    off = G.nirvana_config(G.parse_form({'target': '192.168.1.1', 'password': 'x', 'community': ''}))
+    assert 'flavor: gnmic' in off and 'job: snmp' not in off
     sw = next(d for d in cfg['devices'] if d['id'] == 'sw1')
     assert sw['mgmt_ip'] == '192.168.1.1' and [i['name'] for i in sw['interfaces']] == \
         ['GigabitEthernet1/0/1', 'GigabitEthernet1/0/2', 'mgmt']
@@ -128,6 +133,7 @@ def test_hosts_carry_cpu_from_snmp():
     with open(os.path.join(ROOT, 'static', 'cyber_view.html'), encoding='utf-8') as fh:
         page = fh.read()
     assert 'hostById[id].cpu' in page and 'CPU ${Math.round(cpu)}%' in page
+    assert 'cpuStat(h.cpu)' in page and 'class="cpubar"' in page       # NETWORK 画面の装置の詳細(Host View のカード)にも
 
 
 def _v9_packet(tid=256):
@@ -162,3 +168,35 @@ def test_netflow_v9_and_ipfix_are_read_with_templates_and_setup_enables_2055():
     with open(os.path.join(ROOT, 'engine', 'flow_collector.py'), encoding='utf-8') as a, \
             open(os.path.join(ROOT, 'cyber-view-standalone', 'cvs', 'flow_collector.py'), encoding='utf-8') as b:
         assert a.read() == b.read()
+
+
+def test_start_runs_in_background_and_result_is_polled(monkeypatch):
+    """「開始」は裏で動かし、画面は /api/result を取りに来る(ブラウザが長い POST を切っても結果を失わない。
+    二重に押しても1回だけ)。本物の gnmic・Prometheus・snmp_exporter とラボの装置で、途中で画面を開き直しても
+    最後に「うまくいきました」が出ることを Playwright で確かめた"""
+    import threading
+    import time
+    gate = threading.Event()
+    monkeypatch.setattr(G, 'do_up', lambda body: (gate.wait(5), {'ok': True, 'log': 'OK'})[1])
+    G._job.update(running=False, result=None)
+    assert G.start_up({}) == {'started': True, 'running': True}
+    assert G.start_up({}) == {'started': False, 'running': True}           # 走っている間は二重に動かさない
+    assert G._job['running'] and G._job['result'] is None
+    gate.set()
+    for _ in range(50):
+        if not G._job['running']:
+            break
+        time.sleep(0.05)
+    assert G._job['result'] == {'ok': True, 'log': 'OK'}
+    html = G.page({})
+    assert "fetch('/api/result')" in html and 'replace(/\\/\\?' not in html
+
+
+def test_secrets_file_is_passed_to_nirvana(tmp_path, monkeypatch):
+    """~/.nirvana-gnmi/nirvana.env の KEY=VALUE(Cloudflare Radar のトークンなど)をニルヴァーナの環境変数に渡す"""
+    f = tmp_path / 'nirvana.env'
+    f.write_text('\ufeff# Cloudflare Radar\nCLOUDFLARE_API_TOKEN = "abc123"\n\nbad key=x\nEMPTY=\nNETLAB_GEOIP_FETCH=1\n',
+                 encoding='utf-8')
+    monkeypatch.setattr(G, 'STATE_DIR', tmp_path)
+    assert G.load_secrets() == {'CLOUDFLARE_API_TOKEN': 'abc123', 'NETLAB_GEOIP_FETCH': '1'}
+    assert G.load_secrets(tmp_path / 'none.env') == {}
