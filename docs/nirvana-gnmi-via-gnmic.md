@@ -130,7 +130,12 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 
   ![実機 3650 の再起動後の NetFlow](images/nirvana-real-3650-flow-after-reboot.jpg)
 
-紹介資料 `docs/nirvana-introduction-v2.pptx` に、この4枚のスライド(10〜13枚目)を足し、取り込み方の表の NetFlow を
+- WORLD(版 11): `nirvana.env` に Cloudflare のトークンを書き、IHR の期間の上限を直したあと、Cloudflare Radar・
+  RIPE Atlas・DShield・IIJ Internet Health Report がすべて本物のデータで OK。
+
+  ![実機の PC で WORLD がすべて OK](images/nirvana-real-world-all-ok.jpg)
+
+紹介資料 `docs/nirvana-introduction-v2.pptx` に、この5枚のスライド(10〜14枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
 
 版 11: 秘密の値(Cloudflare Radar の API トークンなど)は `%USERPROFILE%\.nirvana-gnmi\nirvana.env`(Linux は
