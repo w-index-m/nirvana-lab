@@ -169,6 +169,26 @@
   #aipanel { top: 120px; right: 88px; width: min(440px, 46vw); max-height: calc(100vh - 150px); overflow: auto; display: none; font-size: 12px; z-index: 30;
     background: rgba(8,4,24,.94); border: 1px solid #9b4dff; padding: 10px; box-shadow: 0 0 24px rgba(155,77,255,.35); }
   body.ai #aipanel { display: block; } body.ai #worldpanel { display: none; }
+  #aipanel .aiscan { margin: 8px 0; padding: 8px; border: 1px solid #6b3fd0; background: rgba(40,10,80,.45); position: relative; overflow: hidden; }
+  #aipanel .aiscan b { color: #e6d6ff; letter-spacing: .12em; }
+  #aipanel .aiscan .bar { height: 4px; margin-top: 6px; background: rgba(120,80,220,.25); overflow: hidden; }
+  #aipanel .aiscan .bar i { display: block; height: 100%; width: 35%; background: linear-gradient(90deg, transparent, #c58cff, transparent); animation: aiScan 1.2s linear infinite; }
+  #aipanel .aiscan .steps { margin-top: 6px; color: #b9a6e6; font: 11px monospace; white-space: pre; }
+  @keyframes aiScan { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+  #ack { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 25; display: none; cursor: pointer; user-select: none; pointer-events: auto;
+    padding: 8px 26px; color: #ffe1e5; font: 700 13px/1.3 monospace; letter-spacing: .14em; text-align: center; background: rgba(120,0,20,.55);
+    border: 1px solid #ff3b4e; clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
+    animation: ackPulse 1.6s ease-in-out infinite; }
+  #ack small { display: block; font-weight: 400; letter-spacing: .06em; color: #ffb3bb; }
+  #ack:hover { background: rgba(200,20,45,.7); }
+  @keyframes ackPulse { 50% { box-shadow: 0 0 22px rgba(255,59,78,.75); background: rgba(160,0,30,.7); } }
+  #ackfx { position: fixed; inset: 0; z-index: 60; pointer-events: none; display: none; align-items: center; justify-content: center; flex-direction: column;
+    background: repeating-linear-gradient(0deg, rgba(0,255,170,.06) 0 2px, transparent 2px 5px); }
+  #ackfx.on { display: flex; animation: ackOut 1.6s ease-out forwards; }
+  #ackfx b { font: 700 clamp(22px, 4vw, 44px) monospace; letter-spacing: .3em; color: #5dffa8; text-shadow: 0 0 18px #5dffa8; animation: ackGlitch .18s steps(2) 5; }
+  #ackfx span { margin-top: 8px; font: 14px monospace; letter-spacing: .2em; color: #b6ffd9; }
+  @keyframes ackOut { 0% { opacity: 0; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes ackGlitch { 50% { transform: translateX(6px) skewX(-8deg); color: #ff3b4e; } }
   #aipanel h4 { margin: 8px 0 4px; color: #e6d6ff; letter-spacing: .08em; font-size: 12px; }
   #aipanel .row { display: flex; gap: 4px; margin: 4px 0; flex-wrap: wrap; align-items: center; }
   #aipanel select, #aipanel button { background: rgba(20,8,40,.9); color: #e6d6ff; border: 1px solid #6b3fd0; padding: 3px 8px; font: 12px sans-serif; cursor: pointer; }
@@ -295,6 +315,8 @@
 </div>
 
 <div id="cidr" class="hud">0.0.0.0/0</div>
+<div id="ack" class="hud" title="表示中の警報を確認済みにして消す(装置の状態は変えない。新しい警報はまた出る)"></div>
+<div id="ackfx"><b>ALERT ACKNOWLEDGED</b><span>警報 確認済 // CLEARED</span></div>
 <div id="zoom" class="hud"><button id="zIn" title="ズームイン">＋</button><button id="zOut" title="ズームアウト">－</button><button id="zReset" title="視点をリセット(ダブルクリックでも可)">⌂</button><button id="zSpin" class="on" title="自動回転のオン/オフ">⟳</button><button id="zBg" title="背景を切り替え(標準/金魚鉢/富士山/太陽系)">◎</button><button id="zMusic" title="BGM を切り替え(なし/ジャズ/レゲエ/アンビエント)">♪</button><button id="zFx" class="on" title="サイバー演出(六角グリッド・データの雨・火の粉・走査線・グリッチ・レーダー・発光・色ずれ・照準・タイプ表示・起動演出)のオン/オフ">FX</button><button id="zSe" title="効果音(警報・情報・ロックオン)のオン/オフ">SE</button><button id="zTerm" title="配色: サイバー(押すと 緑/琥珀/赤 の端末に切り替え)">◐</button></div><div id="bgmToast" class="hud"></div>
 <div id="bgToast" class="hud"></div>
 <div id="modes" class="hud"><button id="mNet" class="on">NETWORK</button><button id="mLink">ROUTER LINKS</button><button id="mOspf" title="OSPF: 隣接状態・エリア・最短経路ツリー">OSPF</button><button id="mAtk" title="ATT&amp;CK: 組織ごとの攻撃の進行度と、戦術×手法の時系列">ATT&amp;CK</button><button id="mWan" title="WAN: 回線チェック(フレッツ網の PPPoE / IPoE、遅延・ロスの推移)">WAN</button><button id="mDark" title="DARKNET: 使われていない帯に届いた通信(スキャン・DDoS の跳ね返り・設定ミス・リフレクションの準備)">DARKNET</button><button id="mWorld" title="WORLD: 地球儀(クラウド宛ての流量・Cloudflare Radar・IIJ Internet Health Report・MAWI の実トラフィック)">WORLD</button><button id="mBoard" title="ダッシュボード(パネル・変数・時間範囲・自動更新・注釈)">BOARD</button><button id="mExplore" title="問い合わせ(PromQL / LogQL / 内部の時系列とログ)">EXPLORE</button><button id="mAlerts" title="アラートルール・連絡先・履歴">ALERTS</button><button id="mAi" title="AI ログ解析: syslog を AI(LLM / クラウド AI)に読ませて、原因と対処を提案。実行は人が押す">AI</button><button id="mList" title="右脇に文字の一覧を出す">LIST</button><button id="mDemo" title="デモ: 自動シナリオ+合成音楽">DEMO ♪</button></div>
@@ -375,6 +397,9 @@
   let hosts = [], hostById = {}, ipOwner = {}, links = [];
   let events = [];                          // 直近のフロー(最大3000)
   let alerts = [];                          // 直近のアラート
+  let ackT = 0;                             // この時刻までの警報は「確認済み」として描かない(この画面だけ)
+  try { ackT = +(localStorage.getItem('cvAckT') || 0); } catch (e) { /* 無くても動く */ }
+  const unacked = (a) => !(a && a.t && a.t <= ackT);
   let seq = 0, alertSeq = 0, primed = false, flowTotal = 0;
   let particles = [];
 
@@ -453,7 +478,7 @@
       }
     }
     for (const a of alerts) {
-      if (now - a.t > 600) continue;
+      if (now - a.t > 600 || !unacked(a)) continue;
       const ip = devIp(a.src) || (a.dst && /^\d+\.\d+\.\d+\.\d+$/.test(a.dst) ? a.dst : devIp(a.dst));
       if (ip && inBlock(ip)) get(octets(ip)[L]).alerts.push(a);
     }
@@ -1049,7 +1074,7 @@
       ctx.fillText(p.label, c.x + s + 4, c.y - 2);
       ctx.fillStyle = '#7fb2d0'; ctx.fillText(p.ip || '', c.x + s + 4, c.y + 12);
     }
-    const mine = alerts.filter(a => (a.src === id || a.dst === id || a.dst === hostView.ip) && Date.now() / 1000 - a.t < 600);
+    const mine = alerts.filter(a => (a.src === id || a.dst === id || a.dst === hostView.ip) && Date.now() / 1000 - a.t < 600 && unacked(a));
     if (mine.length) drawFlower(0, -SPHERE_R * 0.95, mine, t, SPHERE_R * 1.05);
     pickables = [];
   }
@@ -1319,7 +1344,7 @@
   // 押し出した横長の六角プレート(画面に正対、奥行き付き)。big=true は脈動+太字
   // ── プレートの置き場所(1フレームごと): 先に置いたプレート・上のメニュー・状態ボード等と重ねない ──
   let plateBoxes = [], plateBlock = [];
-  const PLATE_HUD = ['modes', 'status', 'cidr', 'crumbs', 'zoom', 'resp', 'legend', 'filter', 'alerts', 'worldpanel', 'testpanel'];
+  const PLATE_HUD = ['modes', 'status', 'cidr', 'crumbs', 'zoom', 'resp', 'legend', 'filter', 'alerts', 'worldpanel', 'testpanel', 'ack'];
   function platesBeginFrame() {
     plateBoxes = [];
     plateBlock = [];
@@ -1624,7 +1649,7 @@
       // 再生中は検知経路(その時刻の根拠)を持っていないので出さない
       if (!vh.active && (l.down || l.state === 'lost' || (l.down_sources || []).length)) evidenceChips(mx, Y + colH + 0.9, mz, l.evidence || {}, t);
       if (l.down) sparksAt(mx, Y + 0.3, mz, t, '#ff3b4e');
-      if (l.alerts.length) {
+      if (l.alerts.filter(unacked).length) {
         const ap = proj(mx, Y + colH + 2.6, mz);
         if (ap) { hexCascade(ap.x, ap.y, 13, '#ff6b78', '警', t); hexPath(ap.x, ap.y, 13); ctx.fillStyle = '#e6142d'; ctx.fill(); ctx.strokeStyle = '#ffb0b8'; ctx.stroke();
           ctx.fillStyle = '#fff'; ctx.font = '700 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -2889,7 +2914,9 @@
   async function aiOpen() {
     try { aiStatus = await api('/api/ai/status'); } catch (e) { aiStatus = { provider: 'unavailable' }; }
     aiRender();
+    if (aiStatus.provider !== 'unavailable' && !aiBusy) aiAnalyze();   // 開いたらすぐ解析(時間がかかっても待つ)
   }
+  let aiStarted = 0, aiTick = null;
   function aiRender() {
     const el = document.getElementById('aipanel'); if (!el) return;
     const st = aiStatus || {};
@@ -2902,6 +2929,13 @@
       装置 <select id="aiDev"><option value="">すべて</option>${devs}</select>
       <button class="go" id="aiGo">${aiBusy ? '解析中…' : '解析'}</button><button id="aiClose">閉じる</button></div>`;
     const r = aiLast;
+    if (aiBusy) {
+      const sec = Math.round((Date.now() - aiStarted) / 1000);
+      const ai = st.provider && st.provider !== 'rules';
+      const steps = ['[1] ログを集める ........ OK', '[2] まとめて重複を省く .. OK', ai ? '[3] パスワード・IP を伏せる OK' : '[3] ルールで調べる ......',
+        ai ? `[4] ${aiEsc(st.model || 'AI')} に問い合わせ中 …` : '', ai ? '[5] 答えを確かめる ......' : ''].filter(Boolean).join('\n');
+      h += `<div class="aiscan"><b>AI ANALYZING // 解析中</b> <span class="dim" id="aiEl">${sec} 秒</span><div class="bar"><i></i></div><div class="steps">${steps}</div></div>`;
+    }
     if (r && r.error && !r.summary) h += `<div style="color:#ff3b4e">${aiEsc(r.error)}</div>`;
     if (r && r.summary !== undefined) {
       h += `<div class="dim">#${r.id} ・ ${r.provider === 'rules' ? 'ルール' : aiEsc(r.provider + ' ' + (r.model || ''))} ・ ログ ${r.stats.rows}行 → 送信 ${r.stats.sent}行${r.redacted_ips ? ` ・ IP ${r.redacted_ips}件を伏せた` : ''}</div>`;
@@ -2936,12 +2970,30 @@
   }
   async function aiAnalyze() {
     if (aiBusy) return;
-    aiBusy = true; aiRender();
-    const body = { minutes: +document.getElementById('aiMin').value, device: document.getElementById('aiDev').value || undefined };
+    const body = { minutes: +((document.getElementById('aiMin') || {}).value || 30), device: (document.getElementById('aiDev') || {}).value || undefined };
+    aiBusy = true; aiStarted = Date.now(); aiRender();
+    clearInterval(aiTick);
+    aiTick = setInterval(() => { const e = document.getElementById('aiEl'); if (e) e.textContent = Math.round((Date.now() - aiStarted) / 1000) + ' 秒'; }, 500);
     try { aiLast = await aiPost('/api/ai/logs/analyze', body); } catch (e) { aiLast = { error: String(e) }; }
-    aiBusy = false; aiRender();
+    clearInterval(aiTick); aiBusy = false; aiRender();
   }
   window.__cvAi = () => ({ status: aiStatus, last: aiLast });
+  // ── 警報の確認(ACK): 表示中の「警」を確認済みにして消す。装置やサーバーの状態は変えず、この画面の表示だけ ──
+  function liveAlerts() { const now = Date.now() / 1000; return alerts.filter(a => now - a.t < 600 && unacked(a)); }
+  function renderAck() {
+    const el = document.getElementById('ack'), n = liveAlerts().length;
+    el.style.display = n ? 'block' : 'none';
+    if (n) el.innerHTML = `警 × ${n} ・ ACK<small>クリックで確認済みにして消す</small>`;
+  }
+  function acknowledge() {
+    ackT = Math.max(Date.now() / 1000, ...alerts.map(a => a.t || 0));
+    try { localStorage.setItem('cvAckT', String(ackT)); } catch (e) { /* 無くても動く */ }
+    const fx = document.getElementById('ackfx'); fx.classList.remove('on'); void fx.offsetWidth; fx.classList.add('on');
+    sfx('lock'); renderAck();
+  }
+  document.getElementById('ack').onclick = acknowledge;
+  setInterval(renderAck, 1000);
+  window.__cvAck = () => ({ ackT, live: liveAlerts().length });
   document.getElementById('mAi').onclick = (e) => {
     const on = document.body.classList.toggle('ai'); e.target.classList.toggle('on', on);
     if (on) aiOpen();
