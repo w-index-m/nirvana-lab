@@ -165,6 +165,30 @@ txt(s, '新規接続(SSH)の上限。超えると失敗が急増', { x: 7.1, y: 
 txt(s, '壁はサンドボックスでなく、エミュレータの中継の作り', { x: 5.35, y: 4.55, w: 4.05, h: 0.4, fontSize: 10, color: C.accent6 });
 s.addNotes('サンドボックスは Ubuntu 24.04.5 LTS、4 コア、メモリ 15 GB です。以前 k6 で ALB のエミュレータに負荷をかけたとき、同時 20 アクセスなら失敗 0%、50 で 0.09%、200 で 4.73% でした。SSH の新規接続は 1 秒あたり約 100 で頭打ちです。どちらも、壁はサンドボックスの性能ではなく、エミュレータの中継部分が 1 接続ごとにスレッドを 2 本使う作りであることが原因です。数百〜数千の同時接続を試すには、非同期 I/O への作り替えが次の一手になります。');
 
+// 3d. サンドボックスと性能の壁(11/22 実測)
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s.addText('サンドボックスと性能の壁(11/22 実測)', { placeholder: 'title' });
+const chartBase = {
+  barDir: 'col', showTitle: true, titleFontSize: 11, titleColor: THEME.colors.lt1, titleFontFace: '+mn-lt',
+  showValue: true, dataLabelPosition: 'outEnd', dataLabelColor: THEME.colors.lt1, dataLabelFontSize: 10, dataLabelFontFace: '+mn-lt',
+  catAxisLabelColor: THEME.colors.lt2, valAxisLabelColor: THEME.colors.lt2, catAxisLabelFontSize: 10, valAxisLabelFontSize: 9,
+  catAxisLabelFontFace: '+mn-lt', valAxisLabelFontFace: '+mn-lt',
+  valGridLine: { color: THEME.colors.dk2, size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false,
+};
+card(s, 0.5, 1.1, 4.35, 2.95, 'direct card');
+card(s, 5.15, 1.1, 4.35, 2.95, 'relay card');
+s.addChart(pres.charts.BAR, [{ name: '万 pps', labels: ['1 プロセス', '2 プロセス', '4 プロセス'], values: [76, 147, 285] }],
+  Object.assign({}, chartBase, { x: 0.6, y: 1.15, w: 4.15, h: 2.3, objectName: 'direct chart', title: '中継なしの送信(万 pps)',
+    chartColors: [THEME.colors.accent5], dataLabelFormatCode: '0' }));
+txt(s, 'コアを足すとそのまま伸びる(3.7 倍)', { x: 0.75, y: 3.5, w: 3.9, h: 0.45, fontSize: 12, bold: true, color: C.accent5 });
+s.addChart(pres.charts.BAR, [{ name: 'req/s', labels: ['中継に 1 コア', '中継に 2 コア'], values: [2300, 1300] }],
+  Object.assign({}, chartBase, { x: 5.25, y: 1.15, w: 4.15, h: 2.3, objectName: 'relay chart', title: 'BIG-IP の中継経由の HTTP(req/s)',
+    chartColors: [THEME.colors.accent3], dataLabelFormatCode: '#,##0' }));
+txt(s, 'コアを足すと約半分に落ちる(GIL の取り合い)', { x: 5.4, y: 3.5, w: 3.9, h: 0.45, fontSize: 12, bold: true, color: C.accent3 });
+txt(s, '200 同時の p95: 直接 4 ms / 中継経由 約 1 秒。中継の CPU は 1 コアの約 7 割で、使い切ってはいない(原因は調査中)', { x: 0.5, y: 4.2, w: 9, h: 0.4, fontSize: 11 });
+txt(s, '壁はサンドボックスの性能ではなく、エミュレータの中継の作り(Python のスレッド)', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('前の数字が、サンドボックスの性能で決まっていたのかを測り直しました。中継を通さずに送るだけなら、ルートインジェクターの送信は 1 プロセス 76 万 pps から 4 プロセス 285 万 pps へ、コアに比例して 3.7 倍に伸びます。9 月に測ったときも 58 万から 224 万で 3.9 倍でした。一方、BIG-IP の中継は Python のスレッドで動くので、2 コアを渡すと GIL の取り合いで処理量が約半分に落ちます。なお 1 コアのときの 2,300 は、負荷をかける側(Python)の上限で、中継の上限ではありません。200 同時になると、中継を通したときだけ p95 が約 1 秒に跳ねます。このとき中継の CPU には余裕があり、待ち受けの列を広げても変わらなかったので、原因はまだ調査中です。詳しくは docs/sandbox-performance-wall.md にあります。');
+
 // 4. テストの 4 層
 pres.addSection({ title: 'テスト' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
