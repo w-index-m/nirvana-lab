@@ -173,8 +173,8 @@ def create_app(cfg, start_collector=True):
     @app.get('/api/traffic/logs')
     def logs(since: float = 0, limit: int = 30, x_session_token: str = Header(None)):
         check(x_session_token)
-        return {'logs': col.logs(since, limit), 'source': 'loki' if col.loki else 'none',
-                'error': col.errors.get('loki'), 'now': time.time()}
+        return {'logs': col.logs(since, limit), 'source': col.log_source(),
+                'error': col.errors.get('loki') or col.errors.get('syslog'), 'now': time.time()}
 
     @app.get('/api/traffic/alerts')
     def alerts(since: int = 0, x_session_token: str = Header(None)):

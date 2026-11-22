@@ -34,9 +34,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 QUICKSTART = HERE / 'gnmi-quickstart.sh'
 STATE_DIR = Path(os.environ.get('NIRVANA_SETUP_DIR', Path.home() / '.nirvana-gnmi'))
-GUI_VERSION = '11'
+GUI_VERSION = '12'
 NETFLOW_PORT = 2055
 SFLOW_PORT = 6343
+SYSLOG_PORT = 514
 NIRVANA_PORT = int(os.environ.get('NIRVANA_PORT', '8091'))
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 PORT_RE = re.compile(r'^[A-Za-z][A-Za-z\-]*\d+(?:/\d+)*(?:\.\d+)?$')
@@ -182,6 +183,8 @@ def nirvana_config(form):
               *(['    flavor: both', '    job: snmp'] if form.get('community') else ['    flavor: gnmic']),
               '    gnmic_job: gnmic']
     # NetFlow v5/v9/IPFIX を UDP 2055、sFlow v5 を UDP 6343 で受ける(装置の送り先をこの PC にすると、NETWORK 画面に通信の粒が出る)
+    # syslog を UDP 514 で直接受ける(装置の `logging host <この PC の IP>`)。AI ログ解析・syslog 観点・リンク断の SYSLOG 経路に使う
+    lines += ['  syslog:', f'    listen: 0.0.0.0:{SYSLOG_PORT}']
     lines += ['  flow:', f'    netflow: {NETFLOW_PORT}', f'    sflow: {SFLOW_PORT}',
               f'    store: "{(STATE_DIR / "flows.db").as_posix()}"', '    keep_days: 30']   # 保存して /flows でまとめる
     if form.get('community'):

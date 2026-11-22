@@ -146,6 +146,14 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 CLOUDFLARE_API_TOKEN=<Cloudflare のトークン>
 ```
 
+版 12: syslog も直接受ける(`cvs/syslog_receiver.py`、`sources.syslog.listen`、設定画面は UDP 514)。それまでの単体版は
+Loki 経由でしかログを読めず、設定画面の構成では syslog 観点・AI ログ解析が空だった。送信元 IP(= `mgmt_ip`)か本文の
+装置名で装置を決め、Loki の行と同じ `Analytics.record_log` に入れるので、syslog 観点・ログのプレート・フラップ・リンク断の
+SYSLOG 経路・AI ログ解析がそのまま使える。RFC 3164 / 5424 の見出しと Cisco の通し番号・時刻は外し、重要度は Cisco の
+`%FAC-<n>-` を優先して無ければ `<PRI>`。設定に無い装置からの行は数えるだけ(`unknown_syslog`)。本物の送り手
+(util-linux の `logger` の RFC 3164 / 5424)と Cisco 形式の行で、`/api/traffic/logs` の取得元 `syslog`、syslog 観点「異常」、
+リンクの SYSLOG 経路 `down` を確かめた。スイッチ側は `logging host <PC の IP>`(`catalyst-3650.example.txt` の 4)。
+
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
 `no system ignore startupconfig switch all` → `write memory` で `"0"` に戻る(実機で確認)。
 - 「停止」で全部止まります。前に手で起動した gnmic・Prometheus があるときは、「手で起動したものを止める」を押します。

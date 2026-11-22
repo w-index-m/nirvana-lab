@@ -53,6 +53,11 @@ interface GigabitEthernet1/0/1
  ip flow monitor NIRVANA-MON input
 exit
 !
+! ── 4. syslog(ログ・リンク断の SYSLOG 経路・AI ログ解析。ニルヴァーナは UDP 514 で受ける) ──
+service timestamps log datetime msec
+logging trap informational
+logging host <PC_IP>
+!
 end
 write memory
 !
@@ -61,3 +66,4 @@ write memory
 !   show running-config | include snmp
 !   show flow exporter NIRVANA-EXP statistics          (Client: Flow Monitor NIRVANA-MON の送信数が増える)
 !   show flow monitor NIRVANA-MON cache                 (フローがたまっているか)
+!   show logging | include Logging to                   (<PC_IP> に送っているか)
