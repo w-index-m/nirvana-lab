@@ -14,6 +14,7 @@
 | ChatGPT のコード実行(データ分析) | あり | 会話の中の Python 専用の隔離環境。外へは基本的に出られない |
 | ChatGPT のエージェント機能 | あり | 仮想の PC(ブラウザなど)で作業 |
 | GitHub Copilot のコーディングエージェント(cloud agent とも呼ばれる) | あり | GitHub Actions の使い捨て環境(自前の runner も可)。外への通信はファイアウォールで制御、リポジトリの Secrets は見えない |
+| AWS の Kiro(クラウドセッション・自律エージェント) | あり | 管理されたクラウドの隔離環境。外への通信は既定で制限なし(`docs/ai-driven-aws.md`) |
 | Google Jules、Devin、Cursor のバックグラウンドエージェントなど | あり | それぞれのクラウドの仮想環境 |
 | エディタ内の GitHub Copilot / Claude Code(PC 版) | なし | 利用者の PC で直接動く(コマンドも利用者のターミナルで実行) |
 | Microsoft 365 Copilot | 一部 | Excel の Python などはクラウドで実行。開発用の作業場所という位置づけではない |

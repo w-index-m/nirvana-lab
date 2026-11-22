@@ -32,6 +32,34 @@
 - **外への通信は許可制**: サンドボックスから出られる先を、AWS の API の宛先だけに絞る。
 - **費用と削除(destroy)は必ず人が確かめる**。
 
+## AWS の Kiro で開発するなら
+
+Kiro は AWS の AI 開発ツールです(VS Code 系の Code OSS をもとにしたエディタのほか、CLI・Web がある)。
+この開発(Claude Code)は試していません。以下は 2026-11-22 時点の公式ドキュメントと AWS の記事で確かめた内容です。
+
+| Kiro の仕組み | 何をするか | この開発(Claude Code)での相当 |
+|---|---|---|
+| Specs(仕様) | 依頼から `requirements.md`・`design.md`・`tasks.md` を先に作り、タスクの順に実装する(仕様駆動の開発) | 要件は会話で決め、結果を `docs/` に残す |
+| Steering | プロジェクトの決まりを Markdown で毎回エージェントに渡す | `CLAUDE.md` |
+| Hooks | ファイルの保存・作成・削除や手動で、裏で決まった作業を走らせる(`.kiro/hooks/`) | Claude Code の hooks(例: 作業の終わりに commit・push を促す) |
+| クラウドセッション / 自律エージェント | 管理されたクラウドの隔離環境で作業を続ける(CLI は `kiro-cli --cloud`)。自律エージェントはプレビュー | LLM サンドボックス(今回の作業場所) |
+| MCP・Powers | 外部の道具をつなぐ。Powers には SAM(サーバーレス)など AWS 向けの手引き付きのものがある | MCP(GitHub など)・skills |
+
+**AWS 構築に使うなら**: Specs の requirements に要件、design に構成(VPC・ALB・EC2 など)、tasks に Terraform や SAM の作業を分け、
+上の「本番の AWS に広げるときの進め方」(plan → 人の承認 → apply → describe で確認)に乗せる。
+
+**注意**: Kiro のクラウドの隔離環境は、既定で外への通信に制限がない(公式ドキュメントはプロンプトインジェクションや秘密の持ち出しの危険を挙げている)。
+この開発のサンドボックスは許可制。AWS の鍵を扱うなら、通信先を絞り、読み取り用の鍵だけを渡す。
+
+出典(2026-11-22 に確認):
+[Kiro の Docs(CLI)](https://kiro.dev/docs/cli)、
+[Cloud sessions](https://kiro.dev/docs/cloud-sessions/)、
+[Autonomous agent の sandbox](https://kiro.dev/docs/autonomous-agent/sandbox)、
+[Introducing Kiro Web](https://kiro.dev/blog/introducing-kiro-web/)、
+[AWS Builder Center: specs を作業単位にする IDE](https://builder.aws.com/content/3DbBI7LQgNIcs6UUj7IPPvqFHOp/aws-kiro-the-agentic-ide-that-makes-specs-the-unit-of-work)、
+[SD Times: Amazon launches spec-driven AI IDE, Kiro](https://sdtimes.com/ai/amazon-launches-spec-driven-ai-ide-kiro/)。
+版の番号や提供範囲(プランごとの自律エージェントなど)はよく変わるので、使う前に最新の Docs で確かめてください。
+
 ## 次の一手(提案)
 
 このラボの ALB の模擬装置を相手に、Terraform の AWS プロバイダーを向けて `plan`/`apply` まで通すと、本物の AWS を使わずに上の流れを一通り試せます。

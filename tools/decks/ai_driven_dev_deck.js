@@ -555,6 +555,24 @@ const awsGuard = [
 txt(s, awsGuard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsGuard.length - 1 } })), { x: 5.4, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
 s.addNotes('AWS の構築も、この資料と同じ流れで AI ドリブンにできます。人が要件を言い、Claude が Terraform などを書き、サンドボックスで fmt・validate・plan を流し、模擬環境で試します。CI で lint やセキュリティ検査を通し、plan の結果を PR に載せます。人が plan を見て apply を承認し、Claude が aws の describe 系コマンドで出来上がりを確かめて記録を残します。このラボで実際にやったのは、ALB を aws-cli の構文で作れる模擬装置にして本物の HTTP で振り分けを確かめたこと、aws-cli が読む定義と突き合わせたこと、AWS の IP 範囲を地図に重ねたことまでで、本物の AWS への構築はまだしていません。本番でやるなら、AI に渡す鍵は読み取り用だけにして apply は人の承認のあとにする、鍵はチャットに貼らない、外への通信は AWS の API だけ開ける、費用と削除は人が確かめる、の 4 つを守ります。詳しくは docs/ai-driven-aws.md にあります。');
 
+// 11c. AWS の Kiro で開発するなら
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('AWS の Kiro で開発するなら', { placeholder: 'title' });
+txt(s, 'Kiro: AWS の AI 開発ツール(VS Code 系のエディタ・CLI・Web)。コードの前に「仕様」を作るのが特徴', { x: 0.5, y: 1.0, w: 9, h: 0.4, fontSize: 12, color: C.accent1 });
+const KH = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 11 };
+const kn = (t) => ({ text: t, options: { bold: true, color: C.background1 } });
+s.addTable([
+  [{ text: 'Kiro の仕組み', options: KH }, { text: '何をするか', options: KH }, { text: 'この開発(Claude Code)での相当', options: KH }],
+  [kn('Specs(仕様)'), { text: '依頼から requirements.md・design.md・tasks.md を先に作り、タスク順に実装' }, { text: '要件は会話で決め、結果を docs/ に残す' }],
+  [kn('Steering'), { text: 'プロジェクトの決まりを Markdown で毎回渡す' }, { text: 'CLAUDE.md' }],
+  [kn('Hooks'), { text: '保存・作成などのたびに、裏で決まった作業を走らせる' }, { text: 'Claude Code の hooks(例: 終わる前に commit・push を促す)' }],
+  [kn('クラウドセッション / 自律エージェント'), { text: '管理されたクラウドの隔離環境で、手元を閉じても作業を続ける' }, { text: 'LLM サンドボックス(今回の作業場所)' }],
+  [kn('MCP・Powers'), { text: '外部の道具をつなぐ。Powers は SAM など AWS 向けの手引き付き' }, { text: 'MCP(GitHub など)・skills' }],
+], { x: 0.5, y: 1.45, w: 9.0, colW: [2.3, 3.6, 3.1], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.46, valign: 'middle', objectName: 'kiro table' });
+txt(s, 'AWS 構築なら: Specs に要件、design に構成図、tasks に Terraform/SAM の作業を分け、前のスライドの流れ(plan → 人の承認 → apply)に乗せる', { x: 0.5, y: 4.3, w: 9, h: 0.45, fontSize: 11 });
+txt(s, '注意: Kiro のクラウドの隔離環境は、既定で外への通信が制限なし(今回のサンドボックスは許可制)。鍵の扱いは同じく慎重に', { x: 0.5, y: 4.75, w: 9, h: 0.4, fontSize: 10.5, color: C.accent3 });
+s.addNotes('AWS には Kiro という AI 開発ツールがあります。VS Code 系のエディタのほか、CLI や Web でも使えます。特徴は、コードを書く前に仕様を作ることで、依頼から requirements、design、tasks の 3 つの Markdown を作り、タスクの順に実装します。プロジェクトの決まりを毎回渡す Steering は、この開発の CLAUDE.md に当たります。保存などのたびに裏で作業を走らせる Hooks は、Claude Code の hooks に当たります。クラウドセッションや自律エージェントは、管理されたクラウドの隔離環境で作業を続ける仕組みで、今回の LLM サンドボックスと同じ考え方です。AWS の構築に使うなら、Specs に要件、design に構成、tasks に Terraform や SAM の作業を分け、前のスライドの流れに乗せます。注意点として、Kiro のクラウドの隔離環境は既定で外への通信に制限が無いので、鍵の扱いは慎重にします。この資料では Kiro を実際には動かしていません。内容は 2026 年 11 月時点の公式ドキュメントで確かめたものです。');
+
 // 12. 次の一手
 s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'まとめ' });
 s.addText('次の一手', { placeholder: 'title' });
