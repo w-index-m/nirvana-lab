@@ -105,6 +105,23 @@ gnmic・Prometheus 2.54.1・snmp_exporter 0.28.0 で、`up` が「ヴァルハ�
 uutils の `tail` が `-20` を受け付けない点を直した。**実機の Windows 11(Python 3.14)+ WSL(ミラーモード)+ WS-C3650 で、
 版 10 の「開始」が最後まで通ることをユーザーが確認した。**
 
+実機 WS-C3650 での結果(ユーザーの PC、版 10):
+
+- OSPF: Gi1/0/23 と Gi1/0/24 を折り返しケーブルでつなぎ、Gi1/0/24 を VRF RED に入れて(`catalyst-3650-vrf-ospf.example.txt`)
+  プロセス 1 と 2 が FULL。ニルヴァーナの OSPF 画面に SW1 と `RID 10.255.0.2` の `ADJ FULL`・`AREA 0`・Gi1/0/23 が出た
+  (SNMP の直接読み取り)。
+
+  ![実機 3650 の OSPF(VRF)](images/nirvana-real-3650-ospf-vrf.jpg)
+
+- NetFlow: Gi1/0/1 の input を Flexible NetFlow v9 で送り、`/flows` に 1 時間で 15.0 MB・12,290 パケット・1,149 フロー。
+  99.9% が 192.168.1.100 → 192.168.1.1(gNMI・SNMP の監視そのもの)、残りは 239.255.255.250(SSDP)・224.0.0.5(OSPF)・
+  ブロードキャスト。送信元が PC だけなのは input だけを見ているため(返りも見るなら output も付ける)。
+
+  ![実機 3650 の NetFlow 集計](images/nirvana-real-3650-flow-summary.jpg)
+
+紹介資料 `docs/nirvana-introduction-v2.pptx` に、この2枚のスライド(10・11枚目)を足し、取り込み方の表の NetFlow を
+「v5・v9・IPFIX」に直した。
+
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
 `no system ignore startupconfig switch all` → `write memory` で `"0"` に戻る(実機で確認)。
 - 「停止」で全部止まります。前に手で起動した gnmic・Prometheus があるときは、「手で起動したものを止める」を押します。
