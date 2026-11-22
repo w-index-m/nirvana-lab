@@ -24,6 +24,7 @@ import json
 import os
 import re
 import time
+import urllib.error
 import urllib.request
 from collections import OrderedDict
 
@@ -183,10 +184,22 @@ def _ask_claude(cfg, user_text):
     return json.loads(text), getattr(resp, 'model', cfg['model'])
 
 
+UA = 'nirvana-log-ai/1.0'
+
+
 def _post_json(url, body, headers, timeout=90):
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', **headers})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
+    # User-Agent を必ず付ける: Groq の前段(Cloudflare)は Python 既定の「Python-urllib/3.x」を 403(error 1010)で断る
+    req = urllib.request.Request(url, data=json.dumps(body).encode(),
+                                 headers={'Content-Type': 'application/json', 'User-Agent': UA, **headers})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            detail = e.read().decode('utf-8', 'replace')[:200]
+        except Exception:  # noqa: BLE001
+            detail = ''
+        raise RuntimeError(f'HTTP {e.code}: {detail or e.reason}') from None
 
 
 def _loose_json(text):

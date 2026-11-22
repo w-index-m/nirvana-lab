@@ -187,3 +187,37 @@ def test_page_has_ai_panel_and_new_petals():
               "ai_finding: 'AI'", "if (!SOURCES[sname]) sname = 'IDS'"):
         assert s in html, s
     time.sleep(0)
+
+
+def test_openai_compatible_call_sends_user_agent(monkeypatch):
+    """Groq の前段(Cloudflare)は Python 既定の User-Agent を 403 で断るので、必ず自分の UA を付ける。
+    断られたときは本文の一部もエラーに入れる(実機の PC で「HTTP Error 403: Forbidden」だけでは原因が分からなかった)"""
+    import io
+    import urllib.error
+
+    from engine import log_ai as L
+    seen = {}
+
+    class R(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake(req, timeout=0):
+        seen.update({k.lower(): v for k, v in req.header_items()})
+        return R(b'{"ok": 1}')
+    monkeypatch.setattr(L.urllib.request, 'urlopen', fake)
+    assert L._post_json('https://api.groq.com/openai/v1/chat/completions', {}, {'Authorization': 'Bearer x'}) == {'ok': 1}
+    assert seen['user-agent'] == L.UA and not seen['user-agent'].startswith('Python-urllib')
+
+    def deny(req, timeout=0):
+        raise urllib.error.HTTPError(req.full_url, 403, 'Forbidden', {}, io.BytesIO(b'error code: 1010'))
+    monkeypatch.setattr(L.urllib.request, 'urlopen', deny)
+    try:
+        L._post_json('https://api.groq.com/x', {}, {})
+    except RuntimeError as e:
+        assert 'HTTP 403' in str(e) and '1010' in str(e)
+    else:
+        raise AssertionError('例外が出るはず')
