@@ -518,6 +518,43 @@ rules.forEach(([h, b], i) => {
 });
 s.addNotes('AI に任せる範囲が広いほど、決まりが大事です。今日も、強制 push は環境側で止められ、通常のマージで対応しました。main への取り込みは「取り込んで」と言われたときだけ行います。');
 
+// 11b. AI ドリブンで AWS を作るなら
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('AI ドリブンで AWS を作るなら', { placeholder: 'title' });
+const awsFlow = [
+  ['人', '要件を言う', C.accent2],
+  ['Claude', 'Terraform などを書く', C.accent1],
+  ['サンドボックス', 'fmt・validate・plan、模擬環境で試す', C.accent2],
+  ['CI', 'lint・セキュリティ検査・plan を PR に', C.accent5],
+  ['人', 'plan を見て apply を承認', C.accent2],
+  ['Claude', 'describe で確かめ、記録を残す', C.accent1],
+];
+awsFlow.forEach(([who, what, col], i) => {
+  const x = 0.5 + i * 1.53;
+  hex(s, x + 0.4, 1.1, 0.55, col, String(i + 1), 'aws hex ' + (i + 1));
+  txt(s, who, { x, y: 1.65, w: 1.45, h: 0.3, fontSize: 12, bold: true, color: C.background1, align: 'center' });
+  txt(s, what, { x, y: 1.95, w: 1.45, h: 0.7, fontSize: 9.5, align: 'center' });
+});
+card(s, 0.5, 2.8, 4.35, 2.2, 'aws done card');
+card(s, 5.15, 2.8, 4.35, 2.2, 'aws guard card');
+txt(s, 'このラボで実際にやったこと', { x: 0.75, y: 2.92, w: 3.9, h: 0.35, fontSize: 13, bold: true, color: C.accent5 });
+const awsDone = [
+  'ALB を aws-cli の構文で作れる模擬装置にし、本物の HTTP で振り分けを確認',
+  'aws-cli が読む定義(botocore)と突き合わせ、足りない項目を直した',
+  'AWS の IP 範囲(ip-ranges.json)を地図に重ねた',
+  '本物の AWS への構築はまだしていない',
+];
+txt(s, awsDone.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsDone.length - 1 } })), { x: 0.75, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
+txt(s, '本番の AWS で守ること', { x: 5.4, y: 2.92, w: 3.9, h: 0.35, fontSize: 13, bold: true, color: C.accent3 });
+const awsGuard = [
+  'AI に渡す鍵は plan(読み取り)用だけ。apply は人の承認のあと',
+  '鍵はチャットに貼らない。期限付きの権限(OIDC など)を使う',
+  '外への通信は許可制: AWS の API に出る宛先だけ開ける',
+  '費用と削除(destroy)は、必ず人が確かめる',
+];
+txt(s, awsGuard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsGuard.length - 1 } })), { x: 5.4, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
+s.addNotes('AWS の構築も、この資料と同じ流れで AI ドリブンにできます。人が要件を言い、Claude が Terraform などを書き、サンドボックスで fmt・validate・plan を流し、模擬環境で試します。CI で lint やセキュリティ検査を通し、plan の結果を PR に載せます。人が plan を見て apply を承認し、Claude が aws の describe 系コマンドで出来上がりを確かめて記録を残します。このラボで実際にやったのは、ALB を aws-cli の構文で作れる模擬装置にして本物の HTTP で振り分けを確かめたこと、aws-cli が読む定義と突き合わせたこと、AWS の IP 範囲を地図に重ねたことまでで、本物の AWS への構築はまだしていません。本番でやるなら、AI に渡す鍵は読み取り用だけにして apply は人の承認のあとにする、鍵はチャットに貼らない、外への通信は AWS の API だけ開ける、費用と削除は人が確かめる、の 4 つを守ります。詳しくは docs/ai-driven-aws.md にあります。');
+
 // 12. 次の一手
 s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'まとめ' });
 s.addText('次の一手', { placeholder: 'title' });
