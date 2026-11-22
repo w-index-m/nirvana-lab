@@ -99,6 +99,12 @@ PC(WSL)から実機と OSPF を張る試みの結果: WSL はミラーモード�
 gnmic・Prometheus 2.54.1・snmp_exporter 0.28.0 で、`up` が「ヴァルハラが SNMP も取れています(IF 3 本・CPU 16%)」まで通り、
 ニルヴァーナの `/api/valhalla/replay`・`/api/valhalla/forecast` が値を返すことを確かめた。
 
+版 10: 「開始」を裏のスレッドで動かし、画面は `/api/result` を数秒ごとに取りに行く(長い POST をブラウザが切って
+`ConnectionAbortedError` になり結果を失っていた。開き直しても続きが見える・二重に押しても1回だけ)。あわせて WSL ミラーモードで
+空きポートへの接続確認が返ってこず `up` が止まる問題(`port_busy` を2秒で打ち切る)、Python 3.14 の SyntaxWarning、
+uutils の `tail` が `-20` を受け付けない点を直した。**実機の Windows 11(Python 3.14)+ WSL(ミラーモード)+ WS-C3650 で、
+版 10 の「開始」が最後まで通ることをユーザーが確認した。**
+
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
 `no system ignore startupconfig switch all` → `write memory` で `"0"` に戻る(実機で確認)。
 - 「停止」で全部止まります。前に手で起動した gnmic・Prometheus があるときは、「手で起動したものを止める」を押します。
