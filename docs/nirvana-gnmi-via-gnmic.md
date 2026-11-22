@@ -162,6 +162,33 @@ SYSLOG 経路・AI ログ解析がそのまま使える。RFC 3164 / 5424 の見
 (util-linux の `logger` の RFC 3164 / 5424)と Cisco 形式の行で、`/api/traffic/logs` の取得元 `syslog`、syslog 観点「異常」、
 リンクの SYSLOG 経路 `down` を確かめた。スイッチ側は `logging host <PC の IP>`(`catalyst-3650.example.txt` の 4)。
 
+版 13: **Grafana と Loki も WSL で動かす**(設定画面の「Grafana と Loki も動かす」、既定で入。`gnmi-quickstart.sh up --loki`)。
+
+```
+Catalyst ─syslog UDP 514─▶ ニルヴァーナ(Windows)─写しを push─▶ Loki :3100(WSL)─┐
+         ─gNMI─▶ gnmic ─┐                                                       ├─▶ Grafana :3000(WSL)
+         ─SNMP─▶ snmp_exporter ─┴─▶ Prometheus(ヴァルハラ):9090(WSL)───────────┘
+```
+
+- syslog の受け口はニルヴァーナのまま(版 12 と同じ UDP 514)。受けた行の写しを `sources.syslog.loki_push` で Loki の
+  `/loki/api/v1/push` に送る(`cvs/syslog_receiver.LokiPusher`、1 秒ごとにまとめて、ラベル `job="syslog"`・`device`・`host`・
+  `severity`)。WSL を NAT のまま使っても、Windows から WSL の TCP には localhost で届くので、UDP を WSL へ通す必要が無い。
+  Loki が止まっていても受け口は止めず、溜めて送り直す(最大 5000 行、`/api/health` の `loki_push`)。
+  同じ Loki を `sources.loki` で読むと二重に数えるので、設定画面は `sources.loki` を書かない。
+- quickstart は Loki 3.1.1(GitHub の配布物、zip は python3 で展開)と Grafana 11.3.0(dl.grafana.com、約 120 MB)を
+  `~/nirvana-gnmi` に取ってきて起動する。Loki は 14 日で消す。Grafana はデータソース(ヴァルハラ / Loki)と
+  ダッシュボード「Nirvana gNMI」を自動で入れ、ログインせずに見られる(閲覧のみ。編集は admin / admin)。
+- ダッシュボード: gNMI の受信・送信 bps とポートの状態、SNMP の到達性・CPU・up のポートの流量、syslog の件数(重要度別)とログ。
+- 開くところ: http://localhost:3000/d/nirvana-gnmi(設定画面の「Grafana ›」)。
+
+![Grafana のダッシュボード](images/nirvana-grafana-loki-dashboard.png)
+
+ラボの模擬 Catalyst(gNMI・SNMP・`logging host`)で、本物の gnmic・Prometheus 2.54.1・snmp_exporter 0.28.0・Loki 3.1.1・
+Grafana 11.3.0 を設定画面から起動し、`%LINK-3-UPDOWN` が Loki に入って Grafana のログ欄に出ることまで確かめた。
+見つかって直した点: 「停止」の直後に「開始」すると、Loki がまだ後始末中で 3100 番が空いておらず「ポートが使われています」で
+止まった(止めたプロセスが終わるまで待ち、だめなら kill -9)。Grafana は dl.grafana.com がこの作業環境から届かないため、
+同じ版の公式 Docker イメージから取り出した本体で確かめた(配置は配布物と同じ `grafana-v11.3.0/`)。
+
 NETWORK 画面の装置の詳細(/32 の Host View のカード)にも CPU を出す(`cpuStat`、ROUTER LINKS と同じ色分けで棒グラフつき。
 SNMP で取れない装置は出さない)。ラボの模擬 Cisco を設定画面の構成でつなぎ、/0 → 10 → 77 → 0 → .1 と掘り下げて
 `CPU 22%` が出ることを確かめた。

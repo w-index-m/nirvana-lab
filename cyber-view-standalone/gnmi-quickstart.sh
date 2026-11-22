@@ -11,6 +11,8 @@
 #   3. gnmic.yaml / prometheus.yml / ニルヴァーナの設定(nirvana.yaml)を $DIR に書く
 #   4. gnmic と Prometheus を nohup で起動する(画面を閉じても止まらない)
 #   5. 値が gnmic → Prometheus まで届いたかを確かめ、だめなら原因の目安を出す
+#   --loki を付けると、Loki と Grafana も取ってきて起動する(データソースとダッシュボードは自動で登録)。
+#   syslog はニルヴァーナが受け、その写しを Loki に送る(Grafana でログも見られる)
 #
 # 実機の IOS XE 16.x(WS-C3650 16.12.11)で分かった癖に合わせてある:
 #   - ポート名(キー)の無い購読は断られる → ポートごとに [name=...] を付ける
@@ -22,17 +24,23 @@ set -euo pipefail
 
 PROM_VERSION=2.54.1
 SNMPX_VERSION=0.28.0
+LOKI_VERSION=3.1.1
+GRAFANA_VERSION=11.3.0
 DIR=${GNMI_DIR:-$HOME/nirvana-gnmi}
 TARGET=${GNMI_TARGET:-}
 PORTS=${GNMI_PORTS:-}
 USER_NAME=${GNMI_USER:-}
 PASSWORD=${GNMI_PASSWORD:-}
+LOKI=${GNMI_LOKI:-}                       # 1 なら Loki と Grafana も動かす
 SNMP_COMMUNITY=${GNMI_SNMP_COMMUNITY:-}   # 入れると snmp_exporter も動かし、ヴァルハラに SNMP(IF・CPU・OSPF)も貯める
 INTERVAL=10
 GNMI_PORT=50052
 GNMIC_LISTEN=9804
 PROM_LISTEN=9090
 SNMPX_LISTEN=9116
+LOKI_LISTEN=3100
+LOKI_GRPC=9097
+GRAFANA_LISTEN=3000
 WAIT=90
 
 usage() {
@@ -48,6 +56,8 @@ usage() {
   --wait SEC            値が届くまで待つ秒数(既定 90)
   --snmp-community STR  SNMP の community(入れると snmp_exporter も動かし、IF の流量・CPU・OSPF をヴァルハラに貯める。
                         ニルヴァーナの再生・予測・CPU の推移が使えるようになる。GNMI_SNMP_COMMUNITY でも可)
+  --loki                Loki(:3100)と Grafana(:3000)も動かす。Grafana には Prometheus と Loki の
+                        データソースと「Nirvana gNMI」ダッシュボードを自動で入れる(GNMI_LOKI=1 でも可)
 EOF
 }
 
@@ -84,6 +94,7 @@ parse_args() {
       --dir) DIR=$2; shift 2 ;;
       --wait) WAIT=$2; shift 2 ;;
       --snmp-community) SNMP_COMMUNITY=$2; shift 2 ;;
+      --loki) LOKI=1; shift ;;
       -h|--help) usage; exit 0 ;;
       *) echo "知らないオプション: $1" >&2; usage; exit 2 ;;
     esac
@@ -200,7 +211,159 @@ EOF
     fi
     echo "    gnmic_job: gnmic"
   } > "$DIR/nirvana.yaml"
-  ok "設定を書きました: $DIR/gnmic.yaml, prometheus.yml, nirvana.yaml${SNMP_COMMUNITY:+, snmp-auth.yml, snmp-modules.yml}"
+  [ -z "$LOKI" ] || write_loki_grafana
+  ok "設定を書きました: $DIR/gnmic.yaml, prometheus.yml, nirvana.yaml${SNMP_COMMUNITY:+, snmp-auth.yml, snmp-modules.yml}${LOKI:+, loki.yml, grafana/}"
+}
+
+write_loki_grafana() {
+  mkdir -p "$DIR/loki-data" "$DIR/grafana/provisioning/datasources" "$DIR/grafana/provisioning/dashboards" \
+           "$DIR/grafana/dashboards" "$DIR/grafana/data" "$DIR/grafana/logs"
+  cat > "$DIR/loki.yml" <<EOF
+# 1 台構成の Loki(ファイルに保存、14 日で消す)
+auth_enabled: false
+server:
+  http_listen_address: 0.0.0.0
+  http_listen_port: $LOKI_LISTEN
+  grpc_listen_port: $LOKI_GRPC
+  log_level: warn
+common:
+  path_prefix: $DIR/loki-data
+  storage:
+    filesystem:
+      chunks_directory: $DIR/loki-data/chunks
+      rules_directory: $DIR/loki-data/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+compactor:
+  working_directory: $DIR/loki-data/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+limits_config:
+  retention_period: 336h
+  reject_old_samples: false
+  allow_structured_metadata: false
+analytics:
+  reporting_enabled: false
+EOF
+  cat > "$DIR/grafana/grafana.ini" <<EOF
+# gnmi-quickstart.sh が作った Grafana の設定。ログインせずに見られる(閲覧だけ)。編集は admin / admin でログイン
+[server]
+http_addr = 0.0.0.0
+http_port = $GRAFANA_LISTEN
+[paths]
+data = $DIR/grafana/data
+logs = $DIR/grafana/logs
+provisioning = $DIR/grafana/provisioning
+[auth.anonymous]
+enabled = true
+org_role = Viewer
+[analytics]
+reporting_enabled = false
+check_for_updates = false
+check_for_plugin_updates = false
+[news]
+news_feed_enabled = false
+[dashboards]
+default_home_dashboard_path = $DIR/grafana/dashboards/nirvana-gnmi.json
+EOF
+  cat > "$DIR/grafana/provisioning/datasources/nirvana.yml" <<EOF
+apiVersion: 1
+datasources:
+  - name: ヴァルハラ (Prometheus)
+    uid: nirvana-prom
+    type: prometheus
+    access: proxy
+    url: http://127.0.0.1:$PROM_LISTEN
+    isDefault: true
+    jsonData:
+      timeInterval: ${INTERVAL}s
+  - name: Loki
+    uid: nirvana-loki
+    type: loki
+    access: proxy
+    url: http://127.0.0.1:$LOKI_LISTEN
+EOF
+  cat > "$DIR/grafana/provisioning/dashboards/nirvana.yml" <<EOF
+apiVersion: 1
+providers:
+  - name: nirvana
+    folder: Nirvana
+    type: file
+    disableDeletion: true
+    allowUiUpdates: true
+    options:
+      path: $DIR/grafana/dashboards
+EOF
+  write_dashboard > "$DIR/grafana/dashboards/nirvana-gnmi.json"
+}
+
+# Grafana のダッシュボード(gNMI の流量・ポート状態、SNMP の到達性・CPU・流量、Loki の syslog)
+write_dashboard() {
+  cat <<'DASHBOARD'
+{
+  "uid": "nirvana-gnmi",
+  "title": "Nirvana gNMI",
+  "tags": ["nirvana", "gnmi"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {"from": "now-1h", "to": "now"},
+  "schemaVersion": 39,
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "gNMI 受信 (bps)", "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+     "datasource": {"type": "prometheus", "uid": "nirvana-prom"},
+     "fieldConfig": {"defaults": {"unit": "bps"}, "overrides": []},
+     "targets": [{"refId": "A", "legendFormat": "{{source}} {{interface_name}}",
+       "expr": "rate((max by (source, interface_name) (interfaces_interface_state_counters_in_octets))[2m:15s]) * 8"}]},
+    {"id": 2, "type": "timeseries", "title": "gNMI 送信 (bps)", "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+     "datasource": {"type": "prometheus", "uid": "nirvana-prom"},
+     "fieldConfig": {"defaults": {"unit": "bps"}, "overrides": []},
+     "targets": [{"refId": "A", "legendFormat": "{{source}} {{interface_name}}",
+       "expr": "rate((max by (source, interface_name) (interfaces_interface_state_counters_out_octets))[2m:15s]) * 8"}]},
+    {"id": 3, "type": "table", "title": "gNMI ポートの状態", "gridPos": {"x": 0, "y": 8, "w": 12, "h": 7},
+     "datasource": {"type": "prometheus", "uid": "nirvana-prom"},
+     "targets": [{"refId": "A", "instant": true, "format": "table",
+       "expr": "topk by (source, interface_name) (1, timestamp(interfaces_interface_state_oper_status) and (interfaces_interface_state_oper_status == 1))"}],
+     "transformations": [{"id": "filterFieldsByName", "options": {"include": {"names": ["source", "interface_name", "oper_status"]}}},
+       {"id": "organize", "options": {"indexByName": {"source": 0, "interface_name": 1, "oper_status": 2},
+        "renameByName": {"source": "装置", "interface_name": "ポート", "oper_status": "状態"}}}]},
+    {"id": 4, "type": "stat", "title": "SNMP 到達性", "gridPos": {"x": 12, "y": 8, "w": 6, "h": 7},
+     "datasource": {"type": "prometheus", "uid": "nirvana-prom"},
+     "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "応答なし", "color": "red"}, "1": {"text": "OK", "color": "green"}}}],
+       "noValue": "SNMP 未設定"}, "overrides": []},
+     "targets": [{"refId": "A", "legendFormat": "{{instance}}", "expr": "up{job=\"snmp\"}"}]},
+    {"id": 5, "type": "gauge", "title": "CPU (5分平均, SNMP)", "gridPos": {"x": 18, "y": 8, "w": 6, "h": 7},
+     "datasource": {"type": "prometheus", "uid": "nirvana-prom"},
+     "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "noValue": "SNMP 未設定",
+       "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 70}, {"color": "red", "value": 90}]}}, "overrides": []},
+     "targets": [{"refId": "A", "legendFormat": "{{instance}}", "expr": "max by (instance) (cpmCPUTotal5minRev{job=\"snmp\"})"}]},
+    {"id": 6, "type": "timeseries", "title": "SNMP 受信 / 送信 (bps, up のポート, 送信は下向き)", "gridPos": {"x": 0, "y": 15, "w": 24, "h": 8},
+     "datasource": {"type": "prometheus", "uid": "nirvana-prom"},
+     "fieldConfig": {"defaults": {"unit": "bps", "noValue": "SNMP 未設定"}, "overrides": []},
+     "targets": [
+       {"refId": "A", "legendFormat": "{{instance}} {{ifName}} 受信", "expr": "rate(ifHCInOctets{job=\"snmp\"}[$__rate_interval]) * 8 and on (instance, ifIndex) (ifOperStatus{job=\"snmp\"} == 1)"},
+       {"refId": "B", "legendFormat": "{{instance}} {{ifName}} 送信", "expr": "-rate(ifHCOutOctets{job=\"snmp\"}[$__rate_interval]) * 8 and on (instance, ifIndex) (ifOperStatus{job=\"snmp\"} == 1)"}]},
+    {"id": 7, "type": "timeseries", "title": "syslog の件数 (重要度別, 1分ごと)", "gridPos": {"x": 0, "y": 23, "w": 8, "h": 9},
+     "datasource": {"type": "loki", "uid": "nirvana-loki"},
+     "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}}}, "overrides": []},
+     "targets": [{"refId": "A", "legendFormat": "{{severity}}", "expr": "sum by (severity) (count_over_time({job=\"syslog\"}[1m]))"}]},
+    {"id": 8, "type": "logs", "title": "syslog (ニルヴァーナが受けた行)", "gridPos": {"x": 8, "y": 23, "w": 16, "h": 9},
+     "datasource": {"type": "loki", "uid": "nirvana-loki"},
+     "options": {"showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true},
+     "targets": [{"refId": "A", "expr": "{job=\"syslog\"}"}]}
+  ]
+}
+DASHBOARD
 }
 
 write_snmp_modules() {
@@ -390,6 +553,7 @@ install_tools() {
     [ -x "$PROM_BIN" ] || { ng 'Prometheus を取ってこられませんでした'; exit 1; }
     ok "Prometheus: $PROM_BIN"
   fi
+  [ -z "$LOKI" ] || install_loki_grafana
   [ -n "$SNMP_COMMUNITY" ] || return 0
   SNMPX_BIN="$DIR/snmp_exporter-$SNMPX_VERSION.linux-amd64/snmp_exporter"
   if [ -x "$SNMPX_BIN" ]; then
@@ -405,13 +569,43 @@ install_tools() {
   fi
 }
 
+install_loki_grafana() {
+  LOKI_BIN="$DIR/loki-$LOKI_VERSION/loki-linux-amd64"
+  if [ -x "$LOKI_BIN" ]; then
+    ok "Loki: $LOKI_BIN"
+  else
+    say "Loki $LOKI_VERSION を取ってきます"
+    mkdir -p "$DIR/loki-$LOKI_VERSION"
+    curl -sL -o "$DIR/loki.zip" "https://github.com/grafana/loki/releases/download/v$LOKI_VERSION/loki-linux-amd64.zip"
+    # unzip が無い Ubuntu もあるので python3 で展開する
+    python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$DIR/loki.zip" "$DIR/loki-$LOKI_VERSION" \
+      && rm -f "$DIR/loki.zip" && chmod +x "$LOKI_BIN" || true
+    [ -x "$LOKI_BIN" ] || { ng 'Loki を取ってこられませんでした'; exit 1; }
+    ok "Loki: $LOKI_BIN"
+  fi
+  GRAFANA_HOME="$DIR/grafana-v$GRAFANA_VERSION"
+  if [ -x "$GRAFANA_HOME/bin/grafana" ]; then
+    ok "Grafana: $GRAFANA_HOME"
+  else
+    say "Grafana $GRAFANA_VERSION を取ってきます(約 120 MB)"
+    curl -sL -o "$DIR/grafana.tgz" "https://dl.grafana.com/oss/release/grafana-$GRAFANA_VERSION.linux-amd64.tar.gz"
+    tar xzf "$DIR/grafana.tgz" -C "$DIR" && rm -f "$DIR/grafana.tgz" || true
+    [ -x "$GRAFANA_HOME/bin/grafana" ] || { ng 'Grafana を取ってこられませんでした(dl.grafana.com に届くか確かめてください)'; exit 1; }
+    ok "Grafana: $GRAFANA_HOME"
+  fi
+}
+
 pid_alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
 
 stop_all() {
-  local f
-  for f in gnmic prometheus snmp_exporter; do
+  local f pid i
+  for f in gnmic prometheus snmp_exporter loki grafana; do
     if pid_alive "$DIR/$f.pid"; then
-      kill "$(cat "$DIR/$f.pid")" 2>/dev/null || true
+      pid=$(cat "$DIR/$f.pid")
+      kill "$pid" 2>/dev/null || true
+      # Loki・Prometheus は後始末に数秒かかる。終わる前に起動し直すとポートが空いていない
+      for ((i = 0; i < 40; i++)); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+      kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
       ok "$f を止めました"
     fi
     rm -f "$DIR/$f.pid"
@@ -423,10 +617,10 @@ port_busy() { timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/$1" 2>/dev/null; }
 
 start_all() {
   local p
-  for p in $GNMIC_LISTEN $PROM_LISTEN ${SNMP_COMMUNITY:+$SNMPX_LISTEN}; do
+  for p in $GNMIC_LISTEN $PROM_LISTEN ${SNMP_COMMUNITY:+$SNMPX_LISTEN} ${LOKI:+$LOKI_LISTEN $GRAFANA_LISTEN}; do
     if port_busy "$p"; then
-      ng "ポート $p はすでに使われています(前に手で起動した gnmic / Prometheus / snmp_exporter?)"
-      hint "止めてからやり直してください: pkill gnmic; pkill prometheus; pkill snmp_exporter"
+      ng "ポート $p はすでに使われています(前に手で起動した gnmic / Prometheus / snmp_exporter / Loki / Grafana?)"
+      hint "止めてからやり直してください: pkill gnmic; pkill prometheus; pkill snmp_exporter; pkill loki; pkill grafana"
       exit 1
     fi
   done
@@ -444,8 +638,15 @@ start_all() {
         --web.listen-address="127.0.0.1:$SNMPX_LISTEN" < /dev/null > "$DIR/snmp_exporter.log" 2>&1 &
     echo $! > "$DIR/snmp_exporter.pid"
   fi
+  if [ -n "$LOKI" ]; then
+    nohup "$LOKI_BIN" -config.file="$DIR/loki.yml" < /dev/null > "$DIR/loki.log" 2>&1 &
+    echo $! > "$DIR/loki.pid"
+    nohup "$GRAFANA_HOME/bin/grafana" server --homepath "$GRAFANA_HOME" --config "$DIR/grafana/grafana.ini" \
+        < /dev/null > "$DIR/grafana.log" 2>&1 &
+    echo $! > "$DIR/grafana.pid"
+  fi
   cd - > /dev/null
-  ok "gnmic(:$GNMIC_LISTEN)と Prometheus(:$PROM_LISTEN)${SNMP_COMMUNITY:+と snmp_exporter(:$SNMPX_LISTEN)}を起動しました"
+  ok "gnmic(:$GNMIC_LISTEN)と Prometheus(:$PROM_LISTEN)${SNMP_COMMUNITY:+と snmp_exporter(:$SNMPX_LISTEN)}${LOKI:+と Loki(:$LOKI_LISTEN)・Grafana(:$GRAFANA_LISTEN)}を起動しました"
 }
 
 # gnmic のログから、よくある失敗の原因を出す
@@ -487,6 +688,7 @@ check() {
   if [ "${n_gnmic:-0}" -gt 0 ]; then ok "gnmic が装置から受け取ったポート: $n_gnmic"; else ng 'gnmic が装置から値を受け取れていません'; diagnose; fi
   if [ "$up" = 1 ]; then ok 'Prometheus が gnmic から取れています(up=1)'; else ng "Prometheus が gnmic を取れていません(up=${up:-なし})"; hint "Prometheus のログ: tail -n 20 $DIR/prometheus.log"; fi
   [ -z "$SNMP_COMMUNITY" ] || check_snmp
+  [ -z "$LOKI" ] || check_loki_grafana
   if [ "${n_prom:-0}" -gt 0 ]; then
     ok "Prometheus に入ったポート: $n_prom"
     prom_query 'interfaces_interface_state_counters_in_octets' \
@@ -515,11 +717,36 @@ check_snmp() {
   fi
 }
 
+# Loki と Grafana。だめでも gNMI の表示は続けるので失敗扱いにはしない
+check_loki_grafana() {
+  local i lr='' gr=''
+  for ((i = 0; i < 60; i += 3)); do
+    lr=$(curl -s -m 3 "http://127.0.0.1:$LOKI_LISTEN/ready" 2>/dev/null || true)
+    gr=$(curl -s -m 3 "http://127.0.0.1:$GRAFANA_LISTEN/api/health" 2>/dev/null | grep -o '"database": *"ok"' || true)
+    [ "$lr" = ready ] && [ -n "$gr" ] && break
+    sleep 3
+  done
+  if [ "$lr" = ready ]; then ok "Loki が動いています(:$LOKI_LISTEN)"; else
+    ng "Loki がまだ準備できていません(${lr:-応答なし})"; hint "Loki のログ: tail -n 20 $DIR/loki.log"; fi
+  if [ -n "$gr" ]; then
+    ok "Grafana が動いています: http://localhost:$GRAFANA_LISTEN/d/nirvana-gnmi(編集は admin / admin でログイン)"
+    if curl -s -m 5 "http://127.0.0.1:$GRAFANA_LISTEN/api/search?query=Nirvana" 2>/dev/null | grep -q nirvana-gnmi; then
+      ok 'Grafana にダッシュボード「Nirvana gNMI」が入りました'
+    else
+      ng 'Grafana にダッシュボードが入っていません'; hint "Grafana のログ: tail -n 20 $DIR/grafana.log"
+    fi
+  else
+    ng 'Grafana がまだ準備できていません'; hint "Grafana のログ: tail -n 20 $DIR/grafana.log"
+  fi
+}
+
 status() {
   local f
   [ ! -f "$DIR/snmp-auth.yml" ] || SNMP_COMMUNITY=on   # up で SNMP を入れていれば、その確認もする
-  for f in gnmic prometheus snmp_exporter; do
+  [ ! -f "$DIR/loki.pid" ] || LOKI=1
+  for f in gnmic prometheus snmp_exporter loki grafana; do
     [ "$f" != snmp_exporter ] || [ -f "$DIR/snmp-auth.yml" ] || continue
+    case "$f" in loki|grafana) [ -n "$LOKI" ] || continue ;; esac
     if pid_alive "$DIR/$f.pid"; then ok "$f: 動いています(pid $(cat "$DIR/$f.pid"))"; else ng "$f: 止まっています"; fi
   done
   WAIT=5 check || true
@@ -532,7 +759,9 @@ next_steps() {
   Prometheus の画面:   http://localhost:$PROM_LISTEN/targets
   流量を見る(Graph):   rate(interfaces_interface_state_counters_in_octets[1m]) * 8
   ニルヴァーナの設定:   $DIR/nirvana.yaml(つながり links は手で足す)
-
+${LOKI:+  Grafana:             http://localhost:$GRAFANA_LISTEN/d/nirvana-gnmi(編集は admin / admin)
+  syslog を Loki へ:   nirvana.yaml の sources.syslog に loki_push: http://127.0.0.1:$LOKI_LISTEN
+}
 ニルヴァーナの起動(どちらか):
   WSL:         cd <nirvana-lab>/cyber-view-standalone && python3 server.py -c $DIR/nirvana.yaml --port 8091
   PowerShell:  cd <nirvana-lab>\\cyber-view-standalone; python server.py -c \\\\wsl\$\\<ディストリ名>$DIR/nirvana.yaml --port 8091

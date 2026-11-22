@@ -399,6 +399,31 @@ txt(s, '例: 赤いコミットのある PR は、緑になるまで「取り込
 txt(s, '用語を知らなくても、「やって」と「取り込んで」の 2 つの言葉が CI/CD のスイッチになっている', { x: 0.5, y: 4.88, w: 9, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
 s.addNotes('CI/CD という言葉を意識しなくても、この開発は CI/CD の形で回っています。人が「やって」と言うと、Claude が作業ブランチに push し、そのたびに GitHub Actions が約 2,200 件の試験とシナリオ回帰を自動で流します。これが CI です。緑になってから人が「取り込んで」と言うと main に入り、公開版は main から作られます。これが CD です。人は用語を知らなくても、2 つの言葉で承認の関門を握っています。');
 
+// 9d. 知らないものを作った後の確かめ
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
+s.addText('作るより、確かめる方が大変', { placeholder: 'title' });
+txt(s, '人も Claude も初めて使う道具を組み合わせると、出来上がったものが「正しく動いているか」を、聞きながら確かめることになる', { x: 0.5, y: 1.05, w: 9, h: 0.5, fontSize: 13, color: C.accent1 });
+card(s, 0.5, 1.65, 4.35, 3.1, 'hard card');
+card(s, 5.15, 1.65, 4.35, 3.1, 'ease card');
+txt(s, '大変だったこと(実機 3650 + WSL)', { x: 0.75, y: 1.8, w: 3.9, h: 0.35, fontSize: 14, bold: true, color: C.accent3 });
+const hard = [
+  'Claude は実機に触れない。画面写真と貼り付けた出力の往復で状態を知る',
+  '「正しい画面」を誰も知らない。gnmic・NetFlow v9・Loki など、OK の見た目から聞き合う',
+  '環境の壁が次々に出る: 再起動で設定が消える、PowerShell の .\\、WSL が OSPF を受けない、管理者権限',
+  '外のサービスの仕様変更: IHR の API 移転、Groq の 403(User-Agent)',
+];
+txt(s, hard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < hard.length - 1 } })), { x: 0.75, y: 2.2, w: 3.95, h: 2.5, fontSize: 11, paraSpaceAfter: 5 });
+txt(s, 'やわらげた工夫', { x: 5.4, y: 1.8, w: 3.9, h: 0.35, fontSize: 14, bold: true, color: C.accent5 });
+const ease = [
+  '確かめを道具に入れる: 起動スクリプトが OK / NG と原因の目安を出す',
+  '設定画面に版番号。「古い画面が答えていた」をすぐ見分ける',
+  '先に模擬装置と本物のツール(Prometheus・Loki・Grafana・Cacti)で通しておく',
+  '実機で分かったことは、その日のうちにドキュメントと試験に残す',
+];
+txt(s, ease.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < ease.length - 1 } })), { x: 5.4, y: 2.2, w: 3.95, h: 2.5, fontSize: 11, paraSpaceAfter: 5 });
+txt(s, '「聞きながら進める」往復は手抜きではなく、計画に最初から入れておく工程', { x: 0.5, y: 4.85, w: 9, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('実装そのものは早く進みます。時間がかかるのは、出来上がったものが本当に正しく動いているかを確かめるところです。Claude は自宅の実機に触れないので、画面の写真や貼り付けた出力をやり取りして状態を知ります。gnmic や NetFlow v9、Loki のように人も初めて使う道具だと、そもそも正しい画面がどう見えるのかを、お互いに聞き合いながら確かめることになりました。再起動で設定が消える、PowerShell では .\\ が要る、WSL は OSPF を受け取れない、といった環境の壁も次々に出ました。そこで、起動スクリプト自身が OK と NG と原因の目安を出す、設定画面に版番号を出す、先に模擬装置と本物のツールで通しておく、分かったことをその日のうちに残す、という工夫をしています。');
+
 // 10. 役割分担
 pres.addSection({ title: 'まとめ' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });

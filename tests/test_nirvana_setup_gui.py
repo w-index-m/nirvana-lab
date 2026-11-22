@@ -21,7 +21,8 @@ from cvs import config as C  # noqa: E402
 
 def test_parse_form_accepts_defaults_and_rejects_bad_input():
     f = G.parse_form({'target': '192.168.1.1', 'password': 'pw'})
-    assert f == {'targets': ['192.168.1.1'], 'ports': ['Gi1/0/1'], 'user': 'admin', 'password': 'pw', 'community': 'public'}
+    assert f == {'targets': ['192.168.1.1'], 'ports': ['Gi1/0/1'], 'user': 'admin', 'password': 'pw', 'community': 'public',
+                 'loki': False}
     assert G.parse_form({'target': '10.0.0.1, 10.0.0.2:57400', 'ports': 'Gi1/0/1,Te1/1/1', 'password': 'x'})['targets'] \
         == ['10.0.0.1', '10.0.0.2:57400']
     for bad in ({'target': '', 'password': 'x'}, {'target': 'sw1', 'password': 'x'},
@@ -75,7 +76,7 @@ def test_do_up_flow(monkeypatch, tmp_path):
     r = G.do_up({'target': '192.168.1.1', 'password': 'pw'})
     assert r['ok'] is False and '手で起動したものを止める' in r['log'] and calls == []
     saved = json.loads((tmp_path / 'last.json').read_text(encoding='utf-8'))
-    assert saved == {'target': '192.168.1.1', 'ports': 'Gi1/0/1', 'user': 'admin'}       # パスワードは保存しない
+    assert saved == {'target': '192.168.1.1', 'ports': 'Gi1/0/1', 'user': 'admin', 'loki': False}       # パスワードは保存しない
     monkeypatch.setattr(G, 'run_quickstart', lambda a, f=None: (True, 'OK'))
     r = G.do_up({'target': '192.168.1.1', 'password': 'pw'})
     assert r['ok'] and calls == [''] and r['nirvana_url'].endswith(':8091/?view=links')   # SNMP 無応答なら使わない

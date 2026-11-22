@@ -9,7 +9,14 @@ Analytics.record_log に入れる。そのため syslog 観点・ログのプレ
 そのまま使える。重要度は Cisco の %FAC-<n>- を優先し、無ければ <PRI> の下3ビット。
 RFC 3164(<PRI>Mmm dd hh:mm:ss host msg、Cisco の `<189>123: *Nov 22 ...: %LINK-3-UPDOWN: ...`)と
 RFC 5424(<PRI>1 TIMESTAMP HOST APP PROCID MSGID SD MSG)の両方を受ける。標準ライブラリだけ。
+
+受けた行を Grafana で見たいときは、同じ行を Loki にも送れる(LokiPusher):
+  sources.syslog.loki_push: http://127.0.0.1:3100
+ニルヴァーナが直接受けたまま、Loki にはその写しを入れる(ラベル job="syslog"・device・host・severity)。
+このとき sources.loki で同じ Loki を読むと、同じ行を二度数えるので sources.loki は書かない。
 """
+import json
+import urllib.request
 import re
 import socket
 import threading
@@ -92,3 +99,72 @@ class SyslogReceiver:
                 self._sock.close()
             except OSError:
                 pass
+
+
+SEV_NAMES = ('emerg', 'alert', 'crit', 'err', 'warning', 'notice', 'info', 'debug')
+_CISCO_SEV = re.compile(r'%[\w-]+-(\d)-')
+
+
+class LokiPusher:
+    """受けた syslog の写しを Loki の /loki/api/v1/push へまとめて送る(1 秒ごと)。送れなくても受け口は止めない"""
+
+    def __init__(self, url, interval=1.0, max_queue=5000):
+        self.url = str(url).rstrip('/') + '/loki/api/v1/push'
+        self.interval = interval
+        self.max_queue = max_queue
+        self.stats = {'pushed': 0, 'dropped': 0, 'errors': 0, 'last_error': None, 'last_push': None}
+        self._q = []
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        # プロキシを通さない(社内のプロキシ設定があっても、この PC の中の Loki へ直接)
+        self._open = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
+
+    def add(self, device, host_ip, msg, t, sev=None):
+        m = _CISCO_SEV.search(msg)          # ニルヴァーナと同じく Cisco の %FAC-<n>- を優先し、無ければ <PRI>
+        sev = int(m.group(1)) if m else (6 if sev is None else sev)
+        labels = {'job': 'syslog', 'source': 'nirvana', 'device': str(device or host_ip),
+                  'host': str(host_ip), 'severity': SEV_NAMES[max(0, min(7, int(sev)))]}
+        with self._lock:
+            if len(self._q) >= self.max_queue:
+                self._q.pop(0)
+                self.stats['dropped'] += 1
+            self._q.append((labels, str(int(t * 1e9)), msg))
+
+    def body(self, rows):
+        streams = {}
+        for labels, ts, msg in rows:
+            key = tuple(sorted(labels.items()))
+            streams.setdefault(key, []).append([ts, msg])
+        return {'streams': [{'stream': dict(k), 'values': sorted(v)} for k, v in streams.items()]}
+
+    def flush(self):
+        with self._lock:
+            rows, self._q = self._q, []
+        if not rows:
+            return 0
+        req = urllib.request.Request(self.url, data=json.dumps(self.body(rows)).encode(),
+                                     headers={'Content-Type': 'application/json'}, method='POST')
+        try:
+            with self._open(req, timeout=5) as r:
+                r.read()
+        except Exception as e:  # noqa: BLE001 - Loki が止まっていても受け口は続ける
+            self.stats['errors'] += 1
+            self.stats['last_error'] = str(e)[:200]
+            with self._lock:      # 次の回に送り直す(溜まりすぎた分は古い方から捨てる)
+                self._q = (rows + self._q)[-self.max_queue:]
+            return 0
+        self.stats['pushed'] += len(rows)
+        self.stats['last_push'] = time.time()
+        self.stats['last_error'] = None
+        return len(rows)
+
+    def start(self):
+        def loop():
+            while not self._stop.wait(self.interval):
+                self.flush()
+        threading.Thread(target=loop, name='loki-push', daemon=True).start()
+        return self
+
+    def stop(self):
+        self._stop.set()
+        self.flush()

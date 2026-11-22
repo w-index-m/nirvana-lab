@@ -8,6 +8,7 @@ gNMI で装置を見るための設定画面(コマンドを打たずに使う)
   1. gnmi-quickstart.sh up(gnmic と Prometheus の用意・設定・起動・確認)
      Windows では WSL の中で動かす(gnmic は Linux 版しか無いため)
   2. ニルヴァーナ(server.py)の設定を書いて、8091 番で起動する
+     「Grafana と Loki も動かす」を選ぶと、Loki と Grafana も WSL の中で動かし、ニルヴァーナが受けた syslog の写しを Loki に送る
   3. 結果と、うまくいかないときの原因の目安を画面に出す
 
 標準ライブラリだけで動く(ニルヴァーナ本体は requirements.txt が要る)。
@@ -34,10 +35,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 QUICKSTART = HERE / 'gnmi-quickstart.sh'
 STATE_DIR = Path(os.environ.get('NIRVANA_SETUP_DIR', Path.home() / '.nirvana-gnmi'))
-GUI_VERSION = '12'
+GUI_VERSION = '13'
 NETFLOW_PORT = 2055
 SFLOW_PORT = 6343
-SYSLOG_PORT = 514
+SYSLOG_PORT = int(os.environ.get('NIRVANA_SYSLOG_PORT', '514'))
+LOKI_PORT = 3100
+GRAFANA_PORT = 3000
 NIRVANA_PORT = int(os.environ.get('NIRVANA_PORT', '8091'))
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 PORT_RE = re.compile(r'^[A-Za-z][A-Za-z\-]*\d+(?:/\d+)*(?:\.\d+)?$')
@@ -73,7 +76,9 @@ def parse_form(d):
     community = str(d.get('community', 'public') or '').strip()
     if community and not re.match(r'^[!-~]{1,64}$', community):
         raise ValueError('SNMP community に使えない文字があります(空白・日本語は不可)')
-    return {'targets': targets, 'ports': ports, 'user': user, 'password': password, 'community': community}
+    loki = d.get('loki', False) not in (False, None, '', 0, '0', 'false', 'off')
+    return {'targets': targets, 'ports': ports, 'user': user, 'password': password, 'community': community,
+            'loki': loki}
 
 
 # ── gnmi-quickstart.sh を動かす(Windows は WSL の中で) ──
@@ -94,13 +99,16 @@ def quickstart_cmd(action, form=None):
         env['GNMI_PASSWORD'] = form['password']
         if form.get('community'):
             env['GNMI_SNMP_COMMUNITY'] = form['community']   # snmp_exporter も動かし、ヴァルハラに SNMP を貯める
+        if form.get('loki'):
+            env['GNMI_LOKI'] = '1'                           # Loki と Grafana も動かす
     if on_windows():
         # Windows の git は改行を CRLF にすることがあるので、中身を LF にして標準入力で渡す。
         # 文字列で渡すと Windows の Python が改行を CRLF に戻すので、バイト列で渡す
         script = QUICKSTART.read_bytes().replace(b'\r\n', b'\n')
         env['WSLENV'] = ':'.join(filter(None, [os.environ.get('WSLENV', ''), 'GNMI_FROM_GUI/u',
                                                 'GNMI_PASSWORD/u' if form else '',
-                                                'GNMI_SNMP_COMMUNITY/u' if form and form.get('community') else '']))
+                                                'GNMI_SNMP_COMMUNITY/u' if form and form.get('community') else '',
+                                                'GNMI_LOKI/u' if form and form.get('loki') else '']))
         # --cd ~: 呼び出し元の Windows フォルダへ移ろうとして失敗する(chdir ... failed)のを避ける
         return WSL + ['bash', '-s', '--'] + args, script, env
     return ['bash', str(QUICKSTART)] + args, None, env
@@ -122,7 +130,8 @@ def run_quickstart(action, form=None, timeout=300):
 
 def stop_manual():
     """前に手で起動した gnmic / Prometheus を止める(ポートの取り合いを解く)"""
-    sh = 'pkill -f "gnmic --config" ; pkill -f "prometheus --config" ; sleep 1 ; echo stopped'
+    sh = ('pkill -f "gnmic --config" ; pkill -f "prometheus --config" ; pkill -f snmp_exporter ; '
+          'pkill -f "loki.*-config.file" ; pkill -f "grafana server" ; sleep 1 ; echo stopped')
     argv = WSL + ['bash', '-c', sh] if on_windows() else ['bash', '-c', sh]
     try:
         p = subprocess.run(argv, capture_output=True, text=True, timeout=30)
@@ -185,6 +194,9 @@ def nirvana_config(form):
     # NetFlow v5/v9/IPFIX を UDP 2055、sFlow v5 を UDP 6343 で受ける(装置の送り先をこの PC にすると、NETWORK 画面に通信の粒が出る)
     # syslog を UDP 514 で直接受ける(装置の `logging host <この PC の IP>`)。AI ログ解析・syslog 観点・リンク断の SYSLOG 経路に使う
     lines += ['  syslog:', f'    listen: 0.0.0.0:{SYSLOG_PORT}']
+    if form.get('loki'):
+        # 受けた行の写しを WSL の Loki へ(Windows から WSL の TCP には localhost で届く)。Grafana のダッシュボードに出る
+        lines.append(f'    loki_push: http://127.0.0.1:{LOKI_PORT}')
     lines += ['  flow:', f'    netflow: {NETFLOW_PORT}', f'    sflow: {SFLOW_PORT}',
               f'    store: "{(STATE_DIR / "flows.db").as_posix()}"', '    keep_days: 30']   # 保存して /flows でまとめる
     if form.get('community'):
@@ -307,7 +319,9 @@ def prom_query(q):
 
 def status():
     s = {'gnmic': port_open(9804), 'prometheus': port_open(9090), 'nirvana': port_open(NIRVANA_PORT),
-         'ports': [], 'nirvana_url': f'http://localhost:{NIRVANA_PORT}/?view=links'}
+         'loki': port_open(LOKI_PORT), 'grafana': port_open(GRAFANA_PORT),
+         'ports': [], 'nirvana_url': f'http://localhost:{NIRVANA_PORT}/?view=links',
+         'grafana_url': f'http://localhost:{GRAFANA_PORT}/d/nirvana-gnmi'}
     if s['prometheus']:
         try:
             for r in prom_query('max by (source, interface_name, oper_status) '
@@ -352,6 +366,8 @@ a{color:var(--acc)}#open{display:none;font-size:17px}
 <input id="password" type="password" autocomplete="current-password">
 <label for="community">SNMP community(読み取り用。空にすると SNMP は使わない。経路表・CPU も見えるようになる)</label>
 <input id="community" value="public" autocomplete="off">
+<label style="display:flex;gap:8px;align-items:center;color:var(--fg);font-size:15px"><input id="loki" type="checkbox" style="width:auto" __LOKI__>
+Grafana と Loki も動かす(syslog を Grafana でも見る。初回は約 150 MB を取ってきます)</label>
 <details><summary>詳しい設定(ふつうは変えなくてよい)</summary>
 <label for="ports">見るポート(カンマ区切り)</label><input id="ports" value="__PORTS__">
 <label for="user">ユーザー</label><input id="user" value="__USER__">
@@ -361,7 +377,7 @@ a{color:var(--acc)}#open{display:none;font-size:17px}
 <button id="stop">停止</button>
 <button id="free" title="前に手で起動した gnmic・Prometheus を止めます">手で起動したものを止める</button>
 </div></div>
-<div class="card"><div id="badges"></div><p><a id="open" target="_blank">ニルヴァーナの画面を開く ›</a> <a id="flows" target="_blank" style="display:none;margin-left:16px">フロー集計 ›</a></p>
+<div class="card"><div id="badges"></div><p><a id="open" target="_blank">ニルヴァーナの画面を開く ›</a> <a id="flows" target="_blank" style="display:none;margin-left:16px">フロー集計 ›</a> <a id="grafana" target="_blank" style="display:none;margin-left:16px">Grafana ›</a></p>
 <table id="ports_t"></table><pre id="msg"></pre></div>
 </main><script>
 const $=id=>document.getElementById(id);
@@ -371,7 +387,9 @@ async function post(path,body){const r=await fetch(path,{method:'POST',headers:{
 async function refresh(){
   const s=await (await fetch('/api/status')).json();
   const b=(n,v)=>`<span class="badge ${v?'on':'off'}">${n} ${v?'動作中':'停止'}</span>`;
-  $('badges').innerHTML=b('gnmic',s.gnmic)+b('Prometheus',s.prometheus)+b('ニルヴァーナ',s.nirvana);
+  $('badges').innerHTML=b('gnmic',s.gnmic)+b('Prometheus',s.prometheus)+b('ニルヴァーナ',s.nirvana)+
+    (s.loki||s.grafana||$('loki').checked?b('Loki',s.loki)+b('Grafana',s.grafana):'');
+  $('grafana').href=s.grafana_url;$('grafana').style.display=s.grafana?'inline':'none';
   $('open').href=s.nirvana_url;$('open').style.display=s.nirvana?'inline':'none';
   $('flows').href=s.nirvana_url.split('?')[0].replace(/[/]$/,'')+'/flows';$('flows').style.display=s.nirvana?'inline':'none';
   $('ports_t').innerHTML=s.ports.length?'<tr><th>装置</th><th>ポート</th><th>状態</th><th>受信バイト</th></tr>'+
@@ -379,7 +397,7 @@ async function refresh(){
 }
 $('start').onclick=async()=>{
   busy(true);say('準備しています(初回は gnmic・Prometheus の取得で数分かかることがあります)…');
-  try{await post('/api/up',{target:$('target').value,ports:$('ports').value,user:$('user').value,password:$('password').value,community:$('community').value});
+  try{await post('/api/up',{target:$('target').value,ports:$('ports').value,user:$('user').value,password:$('password').value,community:$('community').value,loki:$('loki').checked});
     await waitResult(true);}
   catch(e){say('エラー: '+e)}busy(false);refresh();
 };
@@ -405,6 +423,7 @@ def page(defaults):
     return (PAGE.replace('__TARGET__', html.escape(defaults.get('target', '')))
             .replace('__PORTS__', html.escape(defaults.get('ports', 'Gi1/0/1')))
             .replace('__USER__', html.escape(defaults.get('user', 'admin')))
+            .replace('__LOKI__', 'checked' if defaults.get('loki', True) else '')
             .replace('__VER__', GUI_VERSION))
 
 
@@ -423,7 +442,8 @@ def do_up(body):
     with _lock:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         (STATE_DIR / 'last.json').write_text(json.dumps(
-            {'target': ','.join(form['targets']), 'ports': ','.join(form['ports']), 'user': form['user']}),
+            {'target': ','.join(form['targets']), 'ports': ','.join(form['ports']), 'user': form['user'],
+             'loki': form['loki']}),
             encoding='utf-8')   # パスワードは保存しない
         ok, log = run_quickstart('up', form)
         if not ok:
@@ -436,6 +456,9 @@ def do_up(body):
             if not snmp_ok:
                 form = dict(form, community='')
         ok2, log2 = start_nirvana(form)
+        if ok2 and form.get('loki'):
+            log2 += (f'\nGrafana: http://localhost:{GRAFANA_PORT}/d/nirvana-gnmi(見るだけならログイン不要。編集は admin / admin)'
+                     f'\nsyslog はニルヴァーナが受け、その写しを Loki(:{LOKI_PORT})に送ります')
         return {'ok': ok2, 'log': log + '\n' + log2,
                 'nirvana_url': f'http://localhost:{NIRVANA_PORT}/?view=links' if ok2 else None}
 
