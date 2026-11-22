@@ -189,6 +189,22 @@ txt(s, '200 同時の p95: 直接 4 ms / 中継経由 約 1 秒。中継の CPU 
 txt(s, '壁はサンドボックスの性能ではなく、エミュレータの中継の作り(Python のスレッド)', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
 s.addNotes('前の数字が、サンドボックスの性能で決まっていたのかを測り直しました。中継を通さずに送るだけなら、ルートインジェクターの送信は 1 プロセス 76 万 pps から 4 プロセス 285 万 pps へ、コアに比例して 3.7 倍に伸びます。9 月に測ったときも 58 万から 224 万で 3.9 倍でした。一方、BIG-IP の中継は Python のスレッドで動くので、2 コアを渡すと GIL の取り合いで処理量が約半分に落ちます。なお 1 コアのときの 2,300 は、負荷をかける側(Python)の上限で、中継の上限ではありません。200 同時になると、中継を通したときだけ p95 が約 1 秒に跳ねます。このとき中継の CPU には余裕があり、待ち受けの列を広げても変わらなかったので、原因はまだ調査中です。詳しくは docs/sandbox-performance-wall.md にあります。');
 
+// 3e. 運ぶ量(Gbps)で見ると
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s.addText('運ぶ量(Gbps)で見ると', { placeholder: 'title' });
+card(s, 0.5, 1.1, 5.5, 3.45, 'gbps card');
+s.addChart(pres.charts.BAR, [{ name: 'Gbps', labels: ['UDP 送るだけ\n(ルートインジェクター)', 'TCP 直接\n(iperf3)', 'TCP 中継経由\n1 コア', 'TCP 中継経由\n2 コア・4 本'], values: [9.0, 17.2, 6.5, 3.6] }],
+  Object.assign({}, chartBase, { x: 0.6, y: 1.15, w: 5.3, h: 3.35, objectName: 'gbps chart', title: '2 つの IP の間(Gbps、同じ機械の中)',
+    chartColors: [THEME.colors.accent1], dataLabelFormatCode: '0.0', catAxisLabelFontSize: 9 }));
+card(s, 6.25, 1.1, 3.25, 3.45, 'gbps note card');
+txt(s, '小さな接続をたくさん', { x: 6.45, y: 1.25, w: 2.9, h: 0.35, fontSize: 13, bold: true, color: C.accent2 });
+txt(s, '1,300 req/s ≒ 3〜10 Mbps。重いのは運ぶ量ではなく、接続 1 本ごとの手間', { x: 6.45, y: 1.6, w: 2.9, h: 0.8, fontSize: 11 });
+txt(s, '大きなデータを 1 本で', { x: 6.45, y: 2.45, w: 2.9, h: 0.35, fontSize: 13, bold: true, color: C.accent1 });
+txt(s, '中継経由は直接の約 4 割(17 → 6.5 Gbps)。中継は 1 コアを使い切る(97%)。2 コアだとさらに落ちる', { x: 6.45, y: 2.8, w: 2.9, h: 0.95, fontSize: 11 });
+txt(s, '見つけた実バグ: 中継が TCP の半クローズを扱えず、iperf3 の最後のやり取りが切れる', { x: 6.45, y: 3.8, w: 2.9, h: 0.7, fontSize: 10, color: C.accent3 });
+txt(s, 'サンドボックスの中は 1 本で約 17 Gbps 出る。中継を通すと 6.5 Gbps、小さな接続だと Mbps 単位', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('req/s は帯域の試験ではないので、Gbps に直しました。前の HTTP の試験は 1 回あたり数百バイトなので、1,300 req/s は 3〜10 Mbps にしかなりません。大きなデータを 2 つの IP の間で流すと、ルートインジェクターで UDP を送るだけなら 1 プロセス約 9 Gbps、iperf3 の TCP 1 本で直接 17.2 Gbps、BIG-IP の中継経由で 6.5 Gbps でした。中継は 1 コアを使い切っていて、2 コアを渡すと 4 本で 3.6 Gbps に落ちました。ラボの装置は VM ではなく、1 つのコンテナの中で別々の IP を持っているだけなので、これは同じ機械の中の本物の TCP の値です。測る途中で、中継が TCP の半クローズを扱えないバグも見つけました。');
+
 // 4. テストの 4 層
 pres.addSection({ title: 'テスト' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
