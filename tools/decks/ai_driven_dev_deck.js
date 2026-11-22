@@ -654,6 +654,69 @@ const kSafe = [
 txt(s, kSafe.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < kSafe.length - 1 } })), { x: 5.4, y: 1.7, w: 3.95, h: 3.0, fontSize: 11.5, paraSpaceAfter: 8 });
 s.addNotes('Kiro から AWS を変更するのに必要なものは 5 つです。Kiro 本体とサインイン用のアカウント、AWS CLI とその PC で有効な認証情報、CDK や Terraform などの構築の道具、AWS MCP Server などの設定、そして作るリソースに必要な分だけの IAM 権限です。認証情報は、IAM Identity Center の一時的なものがおすすめです。安全のためには、最初は検証用のアカウントで試すこと、Kiro に渡す権限は読み取り用にして本番への apply は人が承認してから行うこと、AWS Budgets で費用の上限アラートを設定しておくこと、Kiro のクラウドの隔離環境には強い鍵を置かないことの 4 つをおすすめします。');
 
+// 11f2. VPC・Direct Connect・ALB・NLB を Kiro で作るなら
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('VPC・DX・ALB・NLB を Kiro で作るなら', { placeholder: 'title' });
+const PH = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 10 };
+const pc = (t, color) => ({ text: t, options: color ? { color } : {} });
+s.addTable([
+  [{ text: '部品', options: PH }, { text: 'Kiro に任せられること', options: PH }, { text: '人がやること・決めること', options: PH }, { text: '特に注意すること', options: PH }],
+  [kn('VPC'), pc('CIDR・サブネット(複数 AZ)・ルートテーブル・NAT・VPC エンドポイント・フローログのコード化'), pc('CIDR の設計(オンプレや他 VPC と重ならないか)、AZ の数、NAT の数(費用)'), pc('CIDR・サブネットは後から変えると作り直し。最初の設計が一番大事', THEME.colors.accent2)],
+  [kn('Direct Connect'), pc('DX ゲートウェイ、VGW / TGW との関連付け、VIF(専用接続)、ルート伝搬のコード化'), pc('回線の申し込み・LOA・構内の配線・事業者とのやり取り。BGP の ASN・VLAN・認証キー。オンプレ側ルーターの BGP 設定'), pc('物理と契約はコードにできない。経路を間違えると本番通信が止まる', THEME.colors.accent3)],
+  [kn('ALB'), pc('リスナー・ルール・ターゲットグループ・ヘルスチェック・SG・WAF の関連付け'), pc('証明書(ACM の DNS 検証)、公開範囲、ルールの優先順位の設計'), pc('DNS 検証は DNS 側の作業が要る。ルールの順番違いで別のサーバーへ', THEME.colors.accent2)],
+  [kn('NLB'), pc('リスナー・ターゲットグループ・AZ ごとの固定 IP(EIP)・クロスゾーン・TLS のコード化'), pc('固定 IP の要否、送信元 IP を残すか(ターゲットの種類で変わる)、ヘルスチェックの方式'), pc('サブネットや EIP の変更は作り直しになりやすい。送信元 IP の扱いでサーバー側の SG が変わる', THEME.colors.accent2)],
+], { x: 0.4, y: 1.0, w: 9.2, colW: [1.35, 2.75, 2.75, 2.35], fontSize: 8.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: [0.32, 0.72, 0.72, 0.72, 0.72], valign: 'middle', objectName: 'aws parts table' });
+txt(s, 'Kiro が書くのはコード。物理・契約・設計の判断・本番への反映の承認は人', { x: 0.4, y: 4.88, w: 9.2, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('VPC、Direct Connect、ALB、NLB の 4 つを部品ごとに整理しました。VPC は CIDR やサブネット、ルートテーブルなどをコードにするところは Kiro に任せられますが、CIDR の設計は人が決めます。後から変えると作り直しになるので、最初の設計が一番大事です。Direct Connect は性質が違い、回線の申し込みや配線、事業者とのやり取り、オンプレ側ルーターの BGP 設定はコードにできません。経路を間違えると本番通信が止まります。ALB は証明書の DNS 検証とルールの順番、NLB は固定 IP と送信元 IP の扱いが注意点です。');
+
+// 11f3. 4 つを進めるときの決まりごと・ラボで先に試せること
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('この 4 つを Kiro で進めるときの決まりごと', { placeholder: 'title' });
+card(s, 0.5, 1.1, 5.1, 3.85, 'aws rules card');
+card(s, 5.8, 1.1, 3.7, 3.85, 'aws lab card');
+const awsRules = [
+  ['作り直し(replace)が出たら止める', 'plan に forces replacement が出たら人が判断するまで進めない。Steering に書くか Hooks で検出(VPC・サブネット・NLB で起きやすい)'],
+  ['Direct Connect の経路は二重に確かめる', '広告する経路・受け取る経路・優先度を design に表で書かせ、オンプレ側の設定と突き合わせる'],
+  ['本番への反映は作業時間を決めて CI/CD から', 'VPC のルートや DX の変更は全体に影響する。Kiro から直接 apply しない'],
+  ['値は表で管理する', 'CIDR・ASN・VLAN・EIP はパラメータシートを正とし、コードはそこから。反映後は describe で確かめる'],
+];
+awsRules.forEach(([h, b], i) => {
+  const y = 1.22 + i * 0.92;
+  hex(s, 0.65, y + 0.02, 0.4, C.accent3, String(i + 1), 'aws rule hex ' + (i + 1));
+  txt(s, h, { x: 1.15, y: y - 0.02, w: 4.35, h: 0.3, fontSize: 11.5, bold: true, color: C.background1 });
+  txt(s, b, { x: 1.15, y: y + 0.28, w: 4.35, h: 0.6, fontSize: 9.5 });
+});
+txt(s, 'このラボで先に試せること', { x: 6.0, y: 1.22, w: 3.35, h: 0.32, fontSize: 12.5, bold: true, color: C.accent5 });
+const awsLab = [
+  ['ALB', '模擬装置で振り分け・ヘルスチェック・設計書の自動作成まで'],
+  ['NLB', '専用の模擬は無い。L4 の振り分けは BIG-IP の模擬装置で似た動き'],
+  ['DX の BGP', 'Cisco・Catalyst は本物の BGP(TCP 179)。オンプレ側の広告・フィルター・AS パスを事前に'],
+  ['VPC', '模擬は無い。CIDR の重なりや経路表のチェックは小さな道具で'],
+];
+awsLab.forEach(([h, b], i) => {
+  const y = 1.62 + i * 0.82;
+  txt(s, h, { x: 6.0, y, w: 3.35, h: 0.28, fontSize: 11, bold: true, color: C.background1 });
+  txt(s, b, { x: 6.0, y: y + 0.27, w: 3.35, h: 0.52, fontSize: 9.5 });
+});
+s.addNotes('この 4 つを Kiro で進めるときは、4 つの決まりごとを置きます。plan に作り直しが出たら人が判断するまで止める。Direct Connect の経路は、広告する経路と受け取る経路、優先度を表に書かせ、オンプレ側と突き合わせる。本番への反映は作業時間を決めて CI/CD から行い、Kiro から直接 apply しない。CIDR や ASN、VLAN、EIP などの値はパラメータシートを正として、反映後は describe で確かめる。このラボでは、ALB は模擬装置で設計書の自動作成まで、Direct Connect のオンプレ側の BGP は本物の BGP を話す Cisco や Catalyst で事前に試せます。');
+
+// 11f4. 要件定義書も Kiro で作れる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('要件定義書も Kiro で作れる?', { placeholder: 'title' });
+txt(s, '下書きなら作れる。Kiro の requirements.md は「機能 1 つ分の要件」。日本の要件定義書はもっと広いので、足りない章を補う', { x: 0.5, y: 0.98, w: 9, h: 0.45, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '要件定義書の章', options: KH }, { text: 'Kiro の requirements.md で', options: KH }, { text: '補い方', options: KH }],
+  [kn('機能要件'), { text: '得意(ユーザーストーリー + EARS の受け入れ条件)' }, { text: 'そのまま使える。粒度を人が揃える' }],
+  [kn('業務要件・背景・範囲'), { text: '依頼に書いた分だけ' }, { text: 'Steering の章立てで項目を立て、人が埋める' }],
+  [kn('非機能要件'), { text: '頼まないと薄い' }, { text: 'IPA の非機能要求グレードを Steering に入れ、項目ごとに質問させる' }],
+  [kn('移行・運用・制約・前提'), { text: 'ほぼ出ない' }, { text: 'ひな形の章として持たせる' }],
+], { x: 0.5, y: 1.48, w: 9.0, colW: [2.3, 3.2, 3.5], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.42, valign: 'middle', objectName: 'req table' });
+card(s, 0.5, 3.92, 9.0, 0.98, 'req nw card');
+txt(s, 'VPC・DX・ALB・NLB の要件で聞き漏らしやすいもの', { x: 0.7, y: 3.98, w: 8.6, h: 0.3, fontSize: 12, bold: true, color: C.accent5 });
+txt(s, '接続する拠点と帯域・冗長(DX は 2 回線か、VPN を予備にするか)・止まってよい時間(SLA)・既存の IP 帯との重なり・公開範囲と証明書・ログの保管期間・費用の上限', { x: 0.7, y: 4.28, w: 8.6, h: 0.6, fontSize: 10.5 });
+txt(s, 'AI は聞き漏らしを減らす役。決めるのは、業務と予算を知っている人', { x: 0.5, y: 4.95, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
+s.addNotes('要件定義書も、下書きなら Kiro で作れます。ただし Kiro の requirements.md は、機能 1 つ分のユーザーストーリーと受け入れ条件で、日本の要件定義書よりずっと狭いものです。機能要件は得意ですが、業務要件や背景、非機能要件、移行や運用、制約や前提はほとんど出ません。会社の章立てを Steering に入れ、非機能要件は IPA の非機能要求グレードを項目表として持たせて、項目ごとに質問させると漏れが減ります。今回の VPC、Direct Connect、ALB、NLB では、拠点と帯域、冗長、止まってよい時間、既存の IP 帯との重なり、公開範囲と証明書、ログの保管期間、費用の上限が聞き漏らしやすい項目です。AI は聞き漏らしを減らす役で、決めるのは業務と予算を知っている人です。');
+
 // 11g. 設計書も Kiro で作れる?(Specs と日本の設計書)
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
 s.addText('基本設計書・詳細設計書も Kiro で作れる?', { placeholder: 'title' });
