@@ -269,16 +269,18 @@ class WorldState:
 
     def __init__(self):
         self.cloud = CloudRanges()
-        self.radar = {'status': 'off'}
-        self.ihr = {'status': 'off'}
+        # 取得する設定なら、最初の取得が終わるまで「取得中」(以前は「オフ」と出て、起動直後に止まったように見えた)
+        first = {'status': 'pending', 'detail': '起動直後: 最初の取得中'} if self.enabled() else {'status': 'off'}
+        self.radar = dict(first)
+        self.ihr = dict(first)
         self._lock = threading.Lock()
         self._last = 0
         self.cloud_seen = {}     # (provider, region) -> {'bytes', 'flows', 'last', 'service'}
         from .world_geo import DEFAULT_PAIRS, AtlasClient, GeoCity, PeerTracker
         self.geo = GeoCity()
         self.peers = PeerTracker()
-        self.dshield = {'status': 'off'}
-        self.atlas = {'status': 'off', 'paths': []}
+        self.dshield = dict(first)
+        self.atlas = dict(first, paths=[])
         self.atlas_client = AtlasClient()
         self.pairs = [dict(p) for p in DEFAULT_PAIRS]
         self._geo_thread = None

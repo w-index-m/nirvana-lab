@@ -1896,6 +1896,7 @@
     if (!el || !d) return;
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
     const st = (s) => !s || s.status === 'off' ? '<span class="off">オフ</span>' : s.status === 'ok' ? '<span class="ok">OK</span>'
+      : s.status === 'pending' ? '<span class="off">取得中…</span>'
       : s.status === 'sample' ? '<span class="warn">見本 SAMPLE</span>'
       : s.status === 'no_token' ? '<span class="warn">APIトークン未設定</span>' : `<span class="ng">取得できません</span>`;
     const cl = d.cloud || {}, rd = d.radar || {}, ih = d.ihr || {}, mw = d.mawi || {};
