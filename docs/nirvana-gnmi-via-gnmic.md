@@ -135,7 +135,15 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 
   ![実機の PC で WORLD がすべて OK](images/nirvana-real-world-all-ok.jpg)
 
-紹介資料 `docs/nirvana-introduction-v2.pptx` に、この5枚のスライド(10〜14枚目)を足し、取り込み方の表の NetFlow を
+- syslog と AI ログ解析(版 12): Catalyst に `logging host 192.168.1.100`、Windows のファイアウォールで UDP 514 を許可
+  (管理者の PowerShell)すると 6 件届き、syslog 観点が「異常」(%LINK-3-UPDOWN)。AI ログ解析は Groq を設定したが
+  `HTTP Error 403: Forbidden` でルールに落ち、ルールで 3 件の所見(設定変更・インタフェース断)と確認コマンドを出した。
+  403 は Groq の前段が Python 既定の User-Agent を断るためで、`engine/log_ai.py`(= `cvs/log_ai.py`)の `_post_json` に
+  User-Agent を付けて直した(断られたときは本文もエラーに出す)。
+
+  ![実機 3650 の syslog と AI ログ解析](images/nirvana-real-3650-syslog-ai.jpg)
+
+紹介資料 `docs/nirvana-introduction-v2.pptx` に、この6枚のスライド(10〜15枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
 
 版 11: 秘密の値(Cloudflare Radar の API トークンなど)は `%USERPROFILE%\.nirvana-gnmi\nirvana.env`(Linux は
