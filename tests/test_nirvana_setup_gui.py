@@ -133,6 +133,7 @@ def test_hosts_carry_cpu_from_snmp():
     with open(os.path.join(ROOT, 'static', 'cyber_view.html'), encoding='utf-8') as fh:
         page = fh.read()
     assert 'hostById[id].cpu' in page and 'CPU ${Math.round(cpu)}%' in page
+    assert 'cpuStat(h.cpu)' in page and 'class="cpubar"' in page       # NETWORK 画面の装置の詳細(Host View のカード)にも
 
 
 def _v9_packet(tid=256):

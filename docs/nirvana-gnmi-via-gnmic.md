@@ -162,6 +162,12 @@ SYSLOG 経路・AI ログ解析がそのまま使える。RFC 3164 / 5424 の見
 (util-linux の `logger` の RFC 3164 / 5424)と Cisco 形式の行で、`/api/traffic/logs` の取得元 `syslog`、syslog 観点「異常」、
 リンクの SYSLOG 経路 `down` を確かめた。スイッチ側は `logging host <PC の IP>`(`catalyst-3650.example.txt` の 4)。
 
+NETWORK 画面の装置の詳細(/32 の Host View のカード)にも CPU を出す(`cpuStat`、ROUTER LINKS と同じ色分けで棒グラフつき。
+SNMP で取れない装置は出さない)。ラボの模擬 Cisco を設定画面の構成でつなぎ、/0 → 10 → 77 → 0 → .1 と掘り下げて
+`CPU 22%` が出ることを確かめた。
+
+![装置の詳細の CPU](images/nirvana-network-hostcard-cpu.jpg)
+
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
 `no system ignore startupconfig switch all` → `write memory` で `"0"` に戻る(実機で確認)。
 - 「停止」で全部止まります。前に手で起動した gnmic・Prometheus があるときは、「手で起動したものを止める」を押します。

@@ -279,6 +279,8 @@
     #card td:last-child { display: none; }
     body.host #session { bottom: 14px; }
   }
+#card .cpubar{display:inline-block;width:46px;height:6px;margin-left:6px;vertical-align:middle;background:rgba(120,160,200,.25);border-radius:3px;overflow:hidden}
+#card .cpubar i{display:block;height:100%}
 </style>
 </head>
 <body>
@@ -1052,6 +1054,12 @@
     pickables = [];
   }
 
+  // 装置の詳細の CPU(SNMP の 5 分平均。取れない装置は出さない)。50% 以上は橙、80% 以上は赤(ROUTER LINKS と同じ)
+  function cpuStat(cpu) {
+    if (cpu == null) return '';
+    const v = Math.round(cpu), col = v >= 80 ? '#ff4d5e' : v >= 50 ? '#ffab2e' : '#3dff9a';
+    return `<span>CPU <b style="color:${col}">${v}%</b><i class="cpubar"><i style="width:${Math.min(100, v)}%;background:${col}"></i></i></span>`;
+  }
   function renderCard() {
     const card = document.getElementById('card'), sess = document.getElementById('session');
     if (!hostView) { card.style.display = sess.style.display = 'none'; return; }
@@ -1065,7 +1073,7 @@
       <table>${h.interfaces.map(i => `<tr><td>${esc(i.name)}</td><td>${esc(i.ip)}/${i.prefix}</td>
         <td class="${i.up ? 'up' : 'down'}">${i.up ? 'UP' : 'DOWN'}</td>
         <td>in ${fmt(i.in_bytes)} / out ${fmt(i.out_bytes)}</td></tr>`).join('')}</table>
-      <div class="stat"><span>Flows <b>${mine.length}</b></span><span>NG <b>${ng}</b></span><span>Peers <b>${h.peers.length}</b></span></div>`;
+      <div class="stat"><span>Flows <b>${mine.length}</b></span><span>NG <b>${ng}</b></span><span>Peers <b>${h.peers.length}</b></span>${cpuStat(h.cpu)}</div>`;
     card.style.display = 'block';
     const rows = mine.slice(-7).reverse().map(e => {
       const tm = new Date(e.t * 1000).toTimeString().slice(0, 8);
