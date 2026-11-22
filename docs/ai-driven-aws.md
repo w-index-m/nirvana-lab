@@ -146,6 +146,43 @@ Word は pandoc など、Excel は小さな変換スクリプトで。気をつ�
 [HashiCorp の Terraform power](https://www.hashicorp.com/blog/hashicorp-is-a-kiro-powers-launch-partner)、
 [Kiro の Authentication](https://kiro.dev/docs/getting-started/authentication/)、[Kiro FAQ](https://kiro.dev/faq/index)、[Kiro Pricing](https://kiro.dev/pricing/index)。
 
+## 操作手順: Kiro で AWS を作るまで
+
+1. **準備(人)**: Kiro を入れてサインインし、Git のリポジトリを開く。
+2. **Steering(人)**: `.kiro/steering/` に product.md・tech.md・structure.md を作らせ、会社の決まり・作り直し(replace)で止めるルールを書き足す。
+3. **AWS の設定(人)**: MCP・Powers を入れ、読み取り用の AWS プロファイル(SSO)を用意する。
+4. **Spec を作る(Kiro)**: 依頼から requirements → design → tasks。各段階を人が読んで承認する(`.kiro/specs/<機能>/`)。
+5. **タスクを実行(Kiro)**: Supervised モード(ファイルを変えるたびに人が確認)で。Kiro の既定は Autopilot。
+6. **plan まで(Kiro)**: fmt・validate・plan。作り直しが出たら止める。
+7. **反映(人)**: PR → CI の検査 → 人の承認 → CI/CD から apply。
+8. **確かめる(Kiro)**: describe で確認し、設計書・パラメータシートを作り直す。
+
+## Kiro で作ったら、変更も Kiro でないとだめか
+
+だめではない。Kiro が作るのは普通の IaC コードと Markdown で Git に入り、人の手でも他の道具でも変えられる。Kiro をやめてもインフラは動く。
+
+- **どの道具で変えても守ること**: 変更は必ず IaC から(コンソールで直接変えない)/ ずれは定期的に見つける(terraform plan・CloudFormation のドリフト検出)/
+  Kiro 以外で変えたら Spec と設計書も直す / 本番への反映はいつでも PR → CI → 人の承認 → CI/CD。
+- **Kiro で変えると楽なこと**: requirements と design を直してから tasks を作らせると仕様と実物が揃ったまま残る / Steering・Hooks の決まりが毎回効く /
+  前回の Spec で、なぜその構成にしたかを追える。
+
+## 作業手順書・運用手順書も Kiro で作れるか
+
+下書きなら作れる。IaC のコードと tasks.md・describe の結果から、コマンドと確認方法の入った手順書を起こせる。
+
+| 手順書の章 | Kiro に書かせる中身 | 人が確かめること |
+|---|---|---|
+| 事前確認 | 今の状態を見る describe・plan のコマンドと、期待する結果 | 作業してよい状態か(連絡・作業時間) |
+| 作業手順 | 順番どおりのコマンド(CI/CD の実行手順を含む) | 順番・待ち時間・止める条件 |
+| 確認方法 | 1 手順ごとの確認コマンドと、正しいときの出力 | 期待値が実物と合っているか |
+| 切り戻し | 前の版に戻す手順(前のコミットで apply など) | 本当に戻せるか(作り直しは戻せないことがある) |
+| 運用(日々の手順) | 監視・アラート時の確認・証明書の更新など | 担当と連絡先、判断の基準 |
+
+こつ: 会社の手順書のひな形を Steering に入れる / 値は現物から / 検証環境で手順書どおりに一度通してから本番へ / Direct Connect の物理作業は事業者の手順と合わせる。
+
+出典(追加分): [Kiro Docs: Autopilot と Supervised](https://kiro.dev/docs/ide/chat/autopilot/)、[Kiro Docs: First project](https://kiro.dev/docs/getting-started/first-project/index)、
+[Kiro IDE preview の changelog](https://kiro.dev/changelog/ide/0-1/)。
+
 ## 次の一手(提案)
 
 このラボの ALB の模擬装置を相手に、Terraform の AWS プロバイダーを向けて `plan`/`apply` まで通すと、本物の AWS を使わずに上の流れを一通り試せます。

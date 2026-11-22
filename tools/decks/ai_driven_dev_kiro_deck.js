@@ -59,7 +59,7 @@ function txt(slide, text, opt) {
 pres.addSection({ title: 'はじめに' });
 let s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'はじめに' });
 s.addText('Kiro で AWS を作る', { placeholder: 'title' });
-s.addText('VPC・Direct Connect・ALB・NLB の構築と、要件定義書・設計書の作り方(2026-11-22 時点)', { placeholder: 'body' });
+s.addText('VPC・Direct Connect・ALB・NLB の構築、要件定義書・設計書・手順書、操作手順と変更の進め方(2026-11-22 時点)', { placeholder: 'body' });
 hex(s, 7.75, 0.45, 0.9, C.accent1, '', 'motif hex 1');
 hex(s, 8.55, 0.95, 0.65, C.accent2, '', 'motif hex 2');
 hex(s, 7.95, 1.25, 0.5, C.accent3, '', 'motif hex 3');
@@ -308,6 +308,75 @@ txt(s, [
 ], { x: 0.7, y: 4.03, w: 8.6, h: 0.82, fontSize: 10.5 });
 s.addNotes('前のスライドの「値は現物から起こす」を、このラボで実際にやりました。aws-cli の構文で ALB を組み、Web 用と API 用の 2 つのターゲットグループと、/api/ を API 側へ送るルールを作りました。本物の HTTP で、/index.html は web1 と web2 に交互に、/api/ は api1 に振り分けられることを確かめてから、describe の出力を読んで基本設計書とパラメータシートを自動で作りました。値はすべて describe から転記するので、設計書と実物が食い違いません。基本設計書のうち、構成図や方針は値から組み立て、目的や非機能要件は人が書く欄として残しています。同じ道具は本物の AWS にも向けられるように作りましたが、そちらはまだ試していません。');
 
+// 操作手順
+pres.addSection({ title: '使い方と運用' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('操作手順: Kiro で AWS を作るまで', { placeholder: 'title' });
+const steps = [
+  ['人', '準備', 'Kiro を入れてサインイン。Git のリポジトリを開く'],
+  ['人', 'Steering', 'product.md・tech.md・structure.md を作らせ、会社の決まり・作り直しで止めるルールを足す'],
+  ['人', 'AWS の設定', 'MCP・Powers を入れ、読み取り用の AWS プロファイル(SSO)を用意'],
+  ['Kiro', 'Spec を作る', '依頼から requirements → design → tasks。各段階を人が読んで承認'],
+  ['Kiro', 'タスクを実行', 'Supervised モードで。ファイルを変えるたびに人が確認'],
+  ['Kiro', 'plan まで', 'fmt・validate・plan。作り直し(replace)が出たら止める'],
+  ['人', '反映', 'PR → CI の検査 → 人の承認 → CI/CD から apply'],
+  ['Kiro', '確かめる', 'describe で確認し、設計書・パラメータシートを作り直す'],
+];
+steps.forEach(([who, h, b], i) => {
+  const col = i % 2, row = Math.floor(i / 2);
+  const x = 0.5 + col * 4.6, y = 1.05 + row * 0.98;
+  const c = who === '人' ? C.accent2 : C.accent1;
+  hex(s, x, y + 0.02, 0.45, c, String(i + 1), 'step hex ' + (i + 1));
+  txt(s, `${h}(${who})`, { x: x + 0.55, y: y - 0.02, w: 3.85, h: 0.3, fontSize: 12, bold: true, color: C.background1 });
+  txt(s, b, { x: x + 0.55, y: y + 0.28, w: 3.85, h: 0.62, fontSize: 9.5 });
+});
+txt(s, 'Kiro が既定で使うのは Autopilot(任せる)。重要なコードや慣れないうちは Supervised(確認しながら)', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 9.5, color: C.accent6 });
+s.addNotes('Kiro で AWS を作るまでの操作手順です。まず Kiro を入れてサインインし、Git のリポジトリを開きます。次に Steering として product.md、tech.md、structure.md を作らせ、会社の決まりや、作り直しが出たら止めるルールを書き足します。MCP や Powers を入れ、AWS は読み取り用のプロファイルを用意します。ここから Kiro に依頼して Spec を作らせ、要件、設計、タスクの各段階を人が読んで承認します。タスクの実行は Supervised モードにして、ファイルを変えるたびに確認します。Kiro にやらせるのは plan までで、作り直しが出たら止めます。反映は PR と CI を通し、人が承認したあと CI/CD から行います。最後に describe で確かめ、設計書とパラメータシートを作り直します。Kiro の既定は Autopilot なので、慣れないうちは Supervised に切り替えるのがおすすめです。');
+
+// Kiro で作ったら変更も Kiro?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Kiro で作ったら、変更も Kiro でないとだめ?', { placeholder: 'title' });
+txt(s, 'だめではない。Kiro が作るのは普通の IaC コードと Markdown で、Git に入る。人の手でも他の道具でも変えられる。Kiro をやめてもインフラは動き続ける', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.6, 4.35, 3.3, 'change must card');
+card(s, 5.15, 1.6, 4.35, 3.3, 'change kiro card');
+txt(s, 'どの道具で変えても守ること', { x: 0.75, y: 1.72, w: 3.9, h: 0.32, fontSize: 13, bold: true, color: C.accent3 });
+const chMust = [
+  '変更は必ず IaC から。コンソールで直接変えない(コードと実物がずれる)',
+  'ずれは定期的に見つける: terraform plan / CloudFormation のドリフト検出',
+  'Kiro 以外で変えたら、Spec と設計書も直す',
+  '本番への反映は、いつでも PR → CI → 人の承認 → CI/CD',
+];
+txt(s, chMust.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < chMust.length - 1 } })), { x: 0.75, y: 2.1, w: 3.95, h: 2.7, fontSize: 10.5, paraSpaceAfter: 6 });
+txt(s, 'Kiro で変えると楽なこと', { x: 5.4, y: 1.72, w: 3.9, h: 0.32, fontSize: 13, bold: true, color: C.accent5 });
+const chKiro = [
+  '変更も Spec から: requirements と design を直してから tasks を作らせると、仕様と実物が揃ったまま残る',
+  'Steering と Hooks の決まり(作り直しで止める など)が、毎回自動で効く',
+  '前回の Spec が残っているので、なぜその構成にしたかを追える',
+];
+txt(s, chKiro.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < chKiro.length - 1 } })), { x: 5.4, y: 2.1, w: 3.95, h: 2.7, fontSize: 10.5, paraSpaceAfter: 6 });
+txt(s, '大事なのは道具をそろえることより、「変更は IaC から・仕様と実物を揃える」を守ること', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
+s.addNotes('Kiro で作ったら変更も Kiro でないといけない、ということはありません。Kiro が作るのは普通の IaC のコードと Markdown で、Git に入ります。人の手でも、ほかの道具でも変えられますし、Kiro をやめてもインフラは動き続けます。どの道具で変えるにしても守ることは、変更は必ず IaC から行いコンソールで直接変えないこと、ずれを定期的に見つけること、Kiro 以外で変えたら Spec と設計書も直すこと、本番への反映はいつでも PR と CI と人の承認を通すことです。Kiro で変えると、Spec を直してからタスクを作るので仕様と実物が揃ったまま残り、Steering や Hooks の決まりも毎回効くので楽になります。');
+
+// 操作手順書も作れる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('作業手順書・運用手順書も Kiro で作れる?', { placeholder: 'title' });
+txt(s, '下書きなら作れる。IaC のコードと tasks.md・describe の結果から、コマンドと確認方法の入った手順書を起こせる', { x: 0.5, y: 0.98, w: 9, h: 0.42, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '手順書の章', options: KH }, { text: 'Kiro に書かせる中身', options: KH }, { text: '人が確かめること', options: KH }],
+  [kn('事前確認'), { text: '今の状態を見る describe・plan のコマンドと、期待する結果' }, { text: '作業してよい状態か(連絡・作業時間)' }],
+  [kn('作業手順'), { text: '順番どおりのコマンド(CI/CD の実行手順を含む)' }, { text: '順番・待ち時間・止める条件' }],
+  [kn('確認方法'), { text: '1 手順ごとの確認コマンドと、正しいときの出力' }, { text: '期待値が実物と合っているか' }],
+  [kn('切り戻し'), { text: '前の版に戻す手順(前のコミットで apply など)' }, { text: '本当に戻せるか(作り直しは戻せないことがある)' }],
+  [kn('運用(日々の手順)'), { text: '監視・アラート時の確認・証明書の更新などの手順' }, { text: '担当と連絡先、判断の基準' }],
+], { x: 0.5, y: 1.45, w: 9.0, colW: [1.9, 3.85, 3.25], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.42, valign: 'middle', objectName: 'runbook table' });
+card(s, 0.5, 4.1, 9.0, 0.8, 'runbook note card');
+txt(s, [
+  { text: 'こつ: ', options: { bold: true, color: C.accent5 } },
+  { text: '会社の手順書のひな形を Steering に入れる / 値は現物から / 検証環境で手順書どおりに一度通してから本番へ / Direct Connect の物理作業は事業者の手順と合わせる' },
+], { x: 0.7, y: 4.18, w: 8.6, h: 0.65, fontSize: 10.5 });
+txt(s, '手順書の正しさは、検証環境で実際に通して初めてわかる', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
+s.addNotes('作業手順書や運用手順書も、下書きなら Kiro で作れます。IaC のコードと tasks.md、describe の結果から、コマンドと確認方法の入った手順書を起こせます。事前確認、作業手順、確認方法、切り戻し、日々の運用の章ごとに、Kiro に書かせる中身と、人が確かめることを分けました。特に切り戻しは、作り直しが起きた変更だと戻せないことがあるので、人が確かめます。会社の手順書のひな形を Steering に入れ、値は現物から起こし、検証環境で手順書どおりに一度通してから本番に使ってください。Direct Connect の物理作業は、事業者の手順と合わせる必要があります。');
+
 // まとめ
 pres.addSection({ title: 'まとめ' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
@@ -317,13 +386,14 @@ const sumItems = [
   ['速くなるのは書く・調べる・出す', '決めること(CIDR・経路・権限・費用)と確かめることは人に残る'],
   ['権限の渡し方がいちばん大事', '読み取り用だけ渡し、本番は人の承認のあと CI/CD から反映'],
   ['Direct Connect は物理と契約が絡む', 'コードにできるのは AWS 側の一部。経路は二重に確かめる'],
-  ['要件定義書・設計書は下書きまで', '値は現物(IaC・describe)から起こし、レビューと承認は人'],
+  ['要件定義書・設計書・手順書は下書きまで', '値は現物(IaC・describe)から起こし、検証環境で通して、レビューと承認は人'],
+  ['変更は Kiro でなくてもよい', '成果物は普通の IaC と Markdown。変更は IaC から、仕様と実物を揃える'],
 ];
 sumItems.forEach(([h, b], i) => {
-  const y = 1.1 + i * 0.78;
+  const y = 1.05 + i * 0.66;
   hex(s, 0.55, y, 0.45, C.accent1, String(i + 1), 'sum hex ' + (i + 1));
   txt(s, h, { x: 1.15, y: y - 0.03, w: 8.3, h: 0.32, fontSize: 13.5, bold: true, color: C.background1 });
-  txt(s, b, { x: 1.15, y: y + 0.29, w: 8.3, h: 0.35, fontSize: 11 });
+  txt(s, b, { x: 1.15, y: y + 0.28, w: 8.3, h: 0.32, fontSize: 10.5 });
 });
 s.addNotes('まとめです。Kiro は AWS 向けの道具がそろった AI 開発ツールで、仕様から入るので文書が残ります。速くなるのは書く、調べる、出すの部分で、決めることと確かめることは人に残ります。いちばん大事なのは権限の渡し方で、Kiro には読み取り用だけを渡し、本番への反映は人が承認したあと CI/CD から行います。Direct Connect は物理と契約が絡むので、コードにできるのは AWS 側の一部です。要件定義書や設計書は下書きまでで、値は現物から起こし、レビューと承認は人が行います。');
 
