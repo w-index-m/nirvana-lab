@@ -137,6 +137,27 @@ feats.forEach(([h, b], i) => {
 });
 s.addNotes('4 から 6 の工程は、LLM サンドボックスの中で動いています。クラウド上に用意された使い捨ての Linux コンテナで、Claude はここでエミュレータのサーバーを起動し、net-snmp や gnmic、Playwright を入れて本物のツールを当てます。ユーザーの PC や実機からは隔離されていて、外への通信は許可されたものだけです。コンテナは使い捨てなので、残したい物は Git に push します。今日も途中でコンテナが入れ替わり、依存を入れ直しました。');
 
+// 3b2. サンドボックスは Claude だけのもの?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s.addText('サンドボックスは Claude だけのもの?', { placeholder: 'title' });
+const HD = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 11 };
+const yes = (t) => ({ text: t, options: { color: THEME.colors.accent5, bold: true } });
+const no = (t) => ({ text: t, options: { color: THEME.colors.accent3, bold: true } });
+const nm = (t) => ({ text: t, options: { bold: true, color: C.background1 } });
+s.addTable([
+  [{ text: '製品', options: HD }, { text: '作業場所', options: HD }, { text: 'どこで動くか・外への通信', options: HD }],
+  [nm('Claude Code(クラウド版、今回)'), yes('あり'), { text: 'Anthropic のコンテナ。許可制のプロキシ経由' }],
+  [nm('OpenAI Codex(クラウド版)'), yes('あり'), { text: 'タスクごとのコンテナ。作業中の通信は既定でオフ' }],
+  [nm('ChatGPT のコード実行'), yes('あり'), { text: 'Python 専用の隔離環境。外へは基本出ない' }],
+  [nm('GitHub Copilot のコーディングエージェント'), yes('あり'), { text: 'GitHub Actions の使い捨て環境。ファイアウォールで制御' }],
+  [nm('Jules・Devin・Cursor の裏方など'), yes('あり'), { text: '各社のクラウドの仮想環境' }],
+  [nm('エディタ内の Copilot / Claude Code(PC 版)'), no('なし'), { text: '利用者の PC で直接動く' }],
+], { x: 0.5, y: 1.1, w: 9.0, colW: [3.3, 0.9, 4.8], fontSize: 10.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.4, valign: 'middle', objectName: 'sandbox table' });
+txt(s, '理由はどこも同じ: 安全(PC や本番を壊さない)・使い捨て(毎回まっさら)・出入りを絞れる(許可した宛先だけ)', { x: 0.5, y: 4.05, w: 9, h: 0.4, fontSize: 11 });
+txt(s, '特別なのはサンドボックスがあることではなく、その中で本物のツールを動かして確かめた使い方', { x: 0.5, y: 4.5, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+txt(s, '2026-11-22 時点。製品の機能・名前はよく変わる(出典は docs/ai-agent-sandboxes.md)', { x: 0.5, y: 4.88, w: 9, h: 0.28, fontSize: 9, color: C.accent6 });
+s.addNotes('このサンドボックスは Claude だけのものではありません。OpenAI の Codex のクラウド版はタスクごとにコンテナを用意し、作業中の外への通信は既定でオフです。GitHub Copilot のコーディングエージェントは、GitHub Actions の使い捨て環境で作業して PR を出します。ChatGPT のコード実行も、Python 専用の隔離環境です。一方、エディタの中で動く Copilot や PC 版の Claude Code は、利用者の PC で直接動くのでサンドボックスではありません。サンドボックスを使う理由はどこも同じで、安全、使い捨て、出入りを絞れることです。この開発で特別だったのは、サンドボックスがあること自体ではなく、その中で本物のツールを動かして確かめながら進めた使い方の方です。');
+
 // 3c. サンドボックスの中身と、さばける量
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
 s.addText('サンドボックスの中身と、さばける量', { placeholder: 'title' });
