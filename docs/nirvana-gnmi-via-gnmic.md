@@ -119,7 +119,12 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 
   ![実機 3650 の NetFlow 集計](images/nirvana-real-3650-flow-summary.jpg)
 
-紹介資料 `docs/nirvana-introduction-v2.pptx` に、この2枚のスライド(10・11枚目)を足し、取り込み方の表の NetFlow を
+- ヴァルハラの SNMP(版 9): ROUTER LINKS の取得元が `VALHALLA`、9 kbps、CPU 54%(橙)、再生ボタン、予測・異常検知の
+  「注 いつもと違う -3.2σ」(Catalyst を起動し直した直後でカウンタが 0 から数え直しになり、ふだんとの差が大きく出たもの)。
+
+  ![実機 3650 のヴァルハラ(SNMP)](images/nirvana-real-3650-valhalla-links.jpg)
+
+紹介資料 `docs/nirvana-introduction-v2.pptx` に、この3枚のスライド(10〜12枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
 
 3650 の設定が再起動で消えるとき: パスワードリカバリの後は `SWITCH_IGNORE_STARTUP_CFG="1"` のまま残る(`show romvar | include IGNORE`)。
