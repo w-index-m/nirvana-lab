@@ -113,6 +113,9 @@ def test_ihr_parse_and_required_timebin():
     assert len(r['outages']) == 1 and r['outages'][0]['stream'] == '2518'           # 同じ事象は1つに
     delay_url = next(u for u in urls if '/network_delay/alarms/' in u)
     assert 'timebin__gte=' in delay_url and 'startpoint_type=AS' in delay_url and '2497%7C' in delay_url
+    # 新 API(www.ihr.live)は下限だけだと 400「Invalid timebin range. Please provide both timebin__lte and timebin__gte」
+    assert 'timebin__lte=' in delay_url
+    assert all('starttime__lte=' in u for u in urls if '/disco/events/' in u)
 
 
 def test_world_refresh_off_sample_and_alerts(monkeypatch):
