@@ -122,7 +122,7 @@ def test_installer_detects_and_writes_config(tmp_path):
         if url.endswith('/ready'):
             return 'ready'
         raise OSError('connection refused')
-    f = installer.detect(mrtg_cfgs=[str(cfgp)], cacti_dirs=[str(rra)], get=get, env={'ANTHROPIC_API_KEY': 'x'})
+    f = installer.detect(mrtg_cfgs=[str(cfgp)], cacti_dirs=[str(rra)], cacti_db_configs=[], get=get, env={'ANTHROPIC_API_KEY': 'x'})
     assert f['prometheus']['job'] == 'cisco-snmp' and f['loki'] and f['ai'] == 'claude' and f['ollama'] is None
     assert {d['hostname'] for d in f['devices'].values()} == {'CR1', 'CR2', 'CR3', '10.9.9.9'}
     cfg = installer.build_config(f)

@@ -226,6 +226,54 @@ Cacti 1.x の RRD のファイル名は `<path_rra>/<host_id>/<local_data_id>.rr
 - DB の接続は、Cacti とは別のサーバーでも構いません(`$database_hostname` の先へ繋ぎます)。ただし RRD は、ニルヴァーナが動くマシンから読めるパスにある必要があります。
 - **必要なもの**: `mysql` クライアント(`mariadb-client` か `mysql-client`)と `rrdtool`。**Docker の単体版のイメージには、どちらも入っていません**(イメージを作り直すか、ホストで動かしてください)。DB のユーザーは `SELECT` だけで足ります。
 
+### WSL(Ubuntu)で本物の Cacti を動かして試す
+
+Cacti が動いているサーバーと同じ形を、Windows の WSL(Ubuntu 24.04)で作れます。apt 版の Cacti 1.2.26 は Apache・PHP・
+MariaDB・rrdtool・net-snmp をまとめて入れ、DB の作成と既定テンプレートの読み込みまで済ませます。
+
+```bash
+# WSL で systemd を使う(/etc/wsl.conf に [boot] systemd=true。新しい WSL は最初から有効。変えたら PowerShell で wsl --shutdown)
+sudo apt-get update
+sudo apt-get install -y cacti          # 途中で Web サーバーは apache2、DB の設定は「はい」
+# Cacti の画面: http://localhost/cacti/(初回は admin / admin、パスワードの変更とインストールの確認が出る)
+
+# 装置とグラフを CLI で足す(画面からでも同じ)
+cd /usr/share/cacti/cli
+sudo php add_device.php --description=SW1 --ip=192.168.1.1 --template=12 --community=public --version=2   # 12 = Cisco Router
+sudo php add_graphs.php --host-id=1 --graph-type=ds --graph-template-id=56 --snmp-query-id=13 \
+     --snmp-query-type-id=33 --snmp-field=ifName --snmp-value=Gi1/0/1        # Interface - Traffic、In/Out Bits (64-bit)
+# ポーラーは /etc/cron.d/cacti が 5 分ごとに回す(systemd が無い WSL では cron が動かないので、手で回すなら)
+sudo -u www-data php /usr/share/cacti/site/poller.php
+```
+
+ニルヴァーナの設定は DB の接続情報を指すだけです(ニルヴァーナは `/etc/cacti/debian.php` を読める権限で動かす。
+読めないときは `db:` に host / user / password を直接書く)。
+
+```yaml
+sources:
+  cacti:
+    db: {config: /etc/cacti/debian.php}
+```
+
+**確かめた結果(2026-11-22)**: この作業環境の Ubuntu 24.04 に apt で Cacti 1.2.26 を入れ、ラボの模擬 Catalyst
+(`snmp-server community public RO`)を `add_device.php` で登録しました。Cacti のデータクエリが模擬装置の IF-MIB を
+読んで IF 一覧を作り(Gi1/0/1 … Vl10)、ポーラーが RRD(`/var/lib/cacti/rra/lk-sw1_traffic_in_4.rrd`)を作ります。
+ニルヴァーナは DB から RRD を装置・IF に対応づけ(`notes.cacti`: 「DB に traffic の RRD が 2 本、装置・IF に対応づけ 2 本」)、
+ROUTER LINKS に Cacti の値(233 kbps × 2 方向、取得元 `cacti`)を出しました。`./install.sh --detect-only` も
+`Cacti: /var/lib/cacti/rra (5 RRD)` と `Cacti DB: /etc/cacti/debian.php` を見つけます。
+
+![本物の Cacti の値を出した ROUTER LINKS](images/nirvana-cacti-real-links.png)
+
+本物の Cacti で初めて分かって直した点:
+
+- **Cacti 1.2 の `settings` には `path_rra` が無い**(RRD の置き場所は `<Cacti>/rra` に決め打ち)。DB のパスは
+  `<path_rra>/lk-sw1_traffic_in_4.rrd` のままで、それを開こうとして `No such file or directory` になっていた。
+  `cacti_db.guess_rra_dir` が、RRD が実際にある場所を候補(`/var/lib/cacti/rra`、`/usr/share/cacti/site/rra`、
+  ソースから入れたときは `<Cacti>/rra` …)から探すようにした。
+- apt 版は `/usr/share/cacti/site/rra` → `/var/lib/cacti/rra` の symlink なので、インストーラーが同じ RRD を
+  2 回数えていた(実体が同じフォルダは 1 回だけ数える)。
+- RRD の値はポーラー 2 回分(10 分ほど)たまってから出ます。それまではリンクの取得元が `none` です。
+
 ### 接続情報のファイルの場所(インストーラーが探す順)
 
 | 場所 | 環境 |

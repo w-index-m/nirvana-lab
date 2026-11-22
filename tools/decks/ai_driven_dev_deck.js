@@ -165,6 +165,46 @@ txt(s, '新規接続(SSH)の上限。超えると失敗が急増', { x: 7.1, y: 
 txt(s, '壁はサンドボックスでなく、エミュレータの中継の作り', { x: 5.35, y: 4.55, w: 4.05, h: 0.4, fontSize: 10, color: C.accent6 });
 s.addNotes('サンドボックスは Ubuntu 24.04.5 LTS、4 コア、メモリ 15 GB です。以前 k6 で ALB のエミュレータに負荷をかけたとき、同時 20 アクセスなら失敗 0%、50 で 0.09%、200 で 4.73% でした。SSH の新規接続は 1 秒あたり約 100 で頭打ちです。どちらも、壁はサンドボックスの性能ではなく、エミュレータの中継部分が 1 接続ごとにスレッドを 2 本使う作りであることが原因です。数百〜数千の同時接続を試すには、非同期 I/O への作り替えが次の一手になります。');
 
+// 3d. サンドボックスと性能の壁(11/22 実測)
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s.addText('サンドボックスと性能の壁(11/22 実測)', { placeholder: 'title' });
+const chartBase = {
+  barDir: 'col', showTitle: true, titleFontSize: 11, titleColor: THEME.colors.lt1, titleFontFace: '+mn-lt',
+  showValue: true, dataLabelPosition: 'outEnd', dataLabelColor: THEME.colors.lt1, dataLabelFontSize: 10, dataLabelFontFace: '+mn-lt',
+  catAxisLabelColor: THEME.colors.lt2, valAxisLabelColor: THEME.colors.lt2, catAxisLabelFontSize: 10, valAxisLabelFontSize: 9,
+  catAxisLabelFontFace: '+mn-lt', valAxisLabelFontFace: '+mn-lt',
+  valGridLine: { color: THEME.colors.dk2, size: 0.5 }, catGridLine: { style: 'none' }, showLegend: false,
+};
+card(s, 0.5, 1.1, 4.35, 2.95, 'direct card');
+card(s, 5.15, 1.1, 4.35, 2.95, 'relay card');
+s.addChart(pres.charts.BAR, [{ name: '万 pps', labels: ['1 プロセス', '2 プロセス', '4 プロセス'], values: [76, 147, 285] }],
+  Object.assign({}, chartBase, { x: 0.6, y: 1.15, w: 4.15, h: 2.3, objectName: 'direct chart', title: '中継なしの送信(万 pps)',
+    chartColors: [THEME.colors.accent5], dataLabelFormatCode: '0' }));
+txt(s, 'コアを足すとそのまま伸びる(3.7 倍)', { x: 0.75, y: 3.5, w: 3.9, h: 0.45, fontSize: 12, bold: true, color: C.accent5 });
+s.addChart(pres.charts.BAR, [{ name: 'req/s', labels: ['中継に 1 コア', '中継に 2 コア'], values: [2300, 1300] }],
+  Object.assign({}, chartBase, { x: 5.25, y: 1.15, w: 4.15, h: 2.3, objectName: 'relay chart', title: 'BIG-IP の中継経由の HTTP(req/s)',
+    chartColors: [THEME.colors.accent3], dataLabelFormatCode: '#,##0' }));
+txt(s, 'コアを足すと約半分に落ちる(GIL の取り合い)', { x: 5.4, y: 3.5, w: 3.9, h: 0.45, fontSize: 12, bold: true, color: C.accent3 });
+txt(s, '200 同時の p95: 直接 4 ms / 中継経由 約 1 秒。中継の CPU は 1 コアの約 7 割で、使い切ってはいない(原因は調査中)', { x: 0.5, y: 4.2, w: 9, h: 0.4, fontSize: 11 });
+txt(s, '壁はサンドボックスの性能ではなく、エミュレータの中継の作り(Python のスレッド)', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('前の数字が、サンドボックスの性能で決まっていたのかを測り直しました。中継を通さずに送るだけなら、ルートインジェクターの送信は 1 プロセス 76 万 pps から 4 プロセス 285 万 pps へ、コアに比例して 3.7 倍に伸びます。9 月に測ったときも 58 万から 224 万で 3.9 倍でした。一方、BIG-IP の中継は Python のスレッドで動くので、2 コアを渡すと GIL の取り合いで処理量が約半分に落ちます。なお 1 コアのときの 2,300 は、負荷をかける側(Python)の上限で、中継の上限ではありません。200 同時になると、中継を通したときだけ p95 が約 1 秒に跳ねます。このとき中継の CPU には余裕があり、待ち受けの列を広げても変わらなかったので、原因はまだ調査中です。詳しくは docs/sandbox-performance-wall.md にあります。');
+
+// 3e. 運ぶ量(Gbps)で見ると
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s.addText('運ぶ量(Gbps)で見ると', { placeholder: 'title' });
+card(s, 0.5, 1.1, 5.5, 3.45, 'gbps card');
+s.addChart(pres.charts.BAR, [{ name: 'Gbps', labels: ['UDP 送るだけ\n(ルートインジェクター)', 'TCP 直接\n(iperf3)', 'TCP 中継経由\n1 コア', 'TCP 中継経由\n2 コア・4 本'], values: [9.0, 17.2, 6.5, 3.6] }],
+  Object.assign({}, chartBase, { x: 0.6, y: 1.15, w: 5.3, h: 3.35, objectName: 'gbps chart', title: '2 つの IP の間(Gbps、同じ機械の中)',
+    chartColors: [THEME.colors.accent1], dataLabelFormatCode: '0.0', catAxisLabelFontSize: 9 }));
+card(s, 6.25, 1.1, 3.25, 3.45, 'gbps note card');
+txt(s, '小さな接続をたくさん', { x: 6.45, y: 1.25, w: 2.9, h: 0.35, fontSize: 13, bold: true, color: C.accent2 });
+txt(s, '1,300 req/s ≒ 3〜10 Mbps。重いのは運ぶ量ではなく、接続 1 本ごとの手間', { x: 6.45, y: 1.6, w: 2.9, h: 0.8, fontSize: 11 });
+txt(s, '大きなデータを 1 本で', { x: 6.45, y: 2.45, w: 2.9, h: 0.35, fontSize: 13, bold: true, color: C.accent1 });
+txt(s, '中継経由は直接の約 4 割(17 → 6.5 Gbps)。中継は 1 コアを使い切る(97%)。2 コアだとさらに落ちる', { x: 6.45, y: 2.8, w: 2.9, h: 0.95, fontSize: 11 });
+txt(s, '見つけた実バグ: 中継が TCP の半クローズを扱えず、iperf3 の最後のやり取りが切れる', { x: 6.45, y: 3.8, w: 2.9, h: 0.7, fontSize: 10, color: C.accent3 });
+txt(s, 'サンドボックスの中は 1 本で約 17 Gbps 出る。中継を通すと 6.5 Gbps、小さな接続だと Mbps 単位', { x: 0.5, y: 4.7, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('req/s は帯域の試験ではないので、Gbps に直しました。前の HTTP の試験は 1 回あたり数百バイトなので、1,300 req/s は 3〜10 Mbps にしかなりません。大きなデータを 2 つの IP の間で流すと、ルートインジェクターで UDP を送るだけなら 1 プロセス約 9 Gbps、iperf3 の TCP 1 本で直接 17.2 Gbps、BIG-IP の中継経由で 6.5 Gbps でした。中継は 1 コアを使い切っていて、2 コアを渡すと 4 本で 3.6 Gbps に落ちました。ラボの装置は VM ではなく、1 つのコンテナの中で別々の IP を持っているだけなので、これは同じ機械の中の本物の TCP の値です。測る途中で、中継が TCP の半クローズを扱えないバグも見つけました。');
+
 // 4. テストの 4 層
 pres.addSection({ title: 'テスト' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
@@ -398,6 +438,31 @@ txt(s, '例: 設定例を変えたのに試験を直し忘れた push を、CI �
 txt(s, '例: 赤いコミットのある PR は、緑になるまで「取り込んで」を待つ', { x: 5.4, y: 4.2, w: 3.9, h: 0.5, fontSize: 11, color: C.accent4 });
 txt(s, '用語を知らなくても、「やって」と「取り込んで」の 2 つの言葉が CI/CD のスイッチになっている', { x: 0.5, y: 4.88, w: 9, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
 s.addNotes('CI/CD という言葉を意識しなくても、この開発は CI/CD の形で回っています。人が「やって」と言うと、Claude が作業ブランチに push し、そのたびに GitHub Actions が約 2,200 件の試験とシナリオ回帰を自動で流します。これが CI です。緑になってから人が「取り込んで」と言うと main に入り、公開版は main から作られます。これが CD です。人は用語を知らなくても、2 つの言葉で承認の関門を握っています。');
+
+// 9d. 知らないものを作った後の確かめ
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
+s.addText('作るより、確かめる方が大変', { placeholder: 'title' });
+txt(s, '人も Claude も初めて使う道具を組み合わせると、出来上がったものが「正しく動いているか」を、聞きながら確かめることになる', { x: 0.5, y: 1.05, w: 9, h: 0.5, fontSize: 13, color: C.accent1 });
+card(s, 0.5, 1.65, 4.35, 3.1, 'hard card');
+card(s, 5.15, 1.65, 4.35, 3.1, 'ease card');
+txt(s, '大変だったこと(実機 3650 + WSL)', { x: 0.75, y: 1.8, w: 3.9, h: 0.35, fontSize: 14, bold: true, color: C.accent3 });
+const hard = [
+  'Claude は実機に触れない。画面写真と貼り付けた出力の往復で状態を知る',
+  '「正しい画面」を誰も知らない。gnmic・NetFlow v9・Loki など、OK の見た目から聞き合う',
+  '環境の壁が次々に出る: 再起動で設定が消える、PowerShell の .\\、WSL が OSPF を受けない、管理者権限',
+  '外のサービスの仕様変更: IHR の API 移転、Groq の 403(User-Agent)',
+];
+txt(s, hard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < hard.length - 1 } })), { x: 0.75, y: 2.2, w: 3.95, h: 2.5, fontSize: 11, paraSpaceAfter: 5 });
+txt(s, 'やわらげた工夫', { x: 5.4, y: 1.8, w: 3.9, h: 0.35, fontSize: 14, bold: true, color: C.accent5 });
+const ease = [
+  '確かめを道具に入れる: 起動スクリプトが OK / NG と原因の目安を出す',
+  '設定画面に版番号。「古い画面が答えていた」をすぐ見分ける',
+  '先に模擬装置と本物のツール(Prometheus・Loki・Grafana・Cacti)で通しておく',
+  '実機で分かったことは、その日のうちにドキュメントと試験に残す',
+];
+txt(s, ease.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < ease.length - 1 } })), { x: 5.4, y: 2.2, w: 3.95, h: 2.5, fontSize: 11, paraSpaceAfter: 5 });
+txt(s, '「聞きながら進める」往復は手抜きではなく、計画に最初から入れておく工程', { x: 0.5, y: 4.85, w: 9, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
+s.addNotes('実装そのものは早く進みます。時間がかかるのは、出来上がったものが本当に正しく動いているかを確かめるところです。Claude は自宅の実機に触れないので、画面の写真や貼り付けた出力をやり取りして状態を知ります。gnmic や NetFlow v9、Loki のように人も初めて使う道具だと、そもそも正しい画面がどう見えるのかを、お互いに聞き合いながら確かめることになりました。再起動で設定が消える、PowerShell では .\\ が要る、WSL は OSPF を受け取れない、といった環境の壁も次々に出ました。そこで、起動スクリプト自身が OK と NG と原因の目安を出す、設定画面に版番号を出す、先に模擬装置と本物のツールで通しておく、分かったことをその日のうちに残す、という工夫をしています。');
 
 // 10. 役割分担
 pres.addSection({ title: 'まとめ' });

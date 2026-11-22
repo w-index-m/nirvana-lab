@@ -128,15 +128,38 @@ def load_rrds(db, rra_dir=None, query=None):
     if not rra_dir:
         rows = query(conf, SQL_PATH_RRA)
         rra_dir = rows[0][0] if rows and rows[0] else ''
+    rows = [r for r in query(conf, SQL) if len(r) >= 7]
+    if not rra_dir and any('<path_rra>' in r[3] for r in rows):
+        # 本物の Cacti 1.2 は settings に path_rra を持たない(<Cacti の置き場所>/rra に決め打ち)。
+        # Debian / Ubuntu の apt 版は /usr/share/cacti/site/rra → /var/lib/cacti/rra。RRD が実際にある場所を探す
+        rra_dir = guess_rra_dir([r[3] for r in rows], (db or {}).get('config'))
     out = []
-    for r in query(conf, SQL):
-        if len(r) < 7:
-            continue
+    for r in rows:
         host, desc, idx, path, if_name, if_descr, if_ip = r[:7]
         path = path.replace('<path_rra>', rra_dir.rstrip('/')) if rra_dir else path
         out.append({'host': host, 'description': desc, 'ifindex': int(idx) if idx.isdigit() else None, 'path': path,
                     'if_name': if_name, 'if_descr': if_descr, 'if_ip': if_ip})
     return out
+
+
+RRA_DIR_CANDIDATES = ['/var/lib/cacti/rra', '/usr/share/cacti/site/rra', '/usr/share/cacti/rra',
+                      '/var/www/html/cacti/rra', '/var/www/cacti/rra', '/usr/local/share/cacti/rra']
+
+
+def guess_rra_dir(paths, config=None, exists=os.path.exists):
+    """`<path_rra>/…rrd` の … が実際にあるディレクトリ。<Cacti>/include/config.php を読んだなら <Cacti>/rra を先に見る。
+    どれにも無ければ最初の候補(まだポーラーが RRD を作っていないだけかもしれない)"""
+    cands = []
+    if config:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(config)))
+        if os.path.basename(os.path.dirname(os.path.abspath(config))) == 'include':
+            cands.append(os.path.join(root, 'rra'))
+    cands += [c for c in RRA_DIR_CANDIDATES if c not in cands]
+    rels = [p.split('<path_rra>', 1)[1].lstrip('/') for p in paths if '<path_rra>' in p]
+    for c in cands:
+        if any(exists(os.path.join(c, r)) for r in rels[:20]):
+            return c
+    return cands[0]
 
 
 def map_rrds(rrds, devices, lookup):

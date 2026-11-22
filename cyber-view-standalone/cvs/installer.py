@@ -152,10 +152,16 @@ def detect(prometheus=None, loki=None, zabbix=None, mrtg_cfgs=None, cacti_dirs=N
                 d['from'].add('mrtg')
 
     # Cacti
+    seen_real = set()
     for pat in cacti_dirs if cacti_dirs is not None else CACTI_DIRS:
         hits = sorted(glob.glob(pat))
         searched['cacti'].append({'pattern': pat, 'matches': hits})
         for path in hits:
+            # Ubuntu の apt 版は /usr/share/cacti/site/rra → /var/lib/cacti/rra の symlink。同じ場所は 1 回だけ数える
+            real = os.path.realpath(path)
+            if real in seen_real:
+                continue
+            seen_real.add(real)
             # Cacti 1.x は <rra>/<host_id>/<local_data_id>.rrd(サブディレクトリ・数字だけの名前)なので、下も見る
             files = sorted(os.path.relpath(os.path.join(d, f), path) for d, _s, fs in os.walk(path) for f in fs if f.endswith('.rrd'))
             if files:

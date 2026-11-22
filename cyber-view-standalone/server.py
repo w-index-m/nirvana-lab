@@ -56,7 +56,11 @@ def create_app(cfg, start_collector=True):
 
     @app.get('/api/health')
     def ok():
-        return {'ok': True, 'errors': col.errors, 'notes': col.notes}
+        errors = dict(col.errors)
+        lp = getattr(col, 'loki_push', None)
+        if lp and lp.stats['last_error']:
+            errors['loki_push'] = f"Loki に syslog の写しを送れません: {lp.stats['last_error']}"
+        return {'ok': True, 'errors': errors, 'notes': col.notes, 'loki_push': lp.stats if lp else None}
 
     @app.get('/api/traffic/hosts')
     def hosts(x_session_token: str = Header(None)):

@@ -15,7 +15,7 @@ from collections import defaultdict, deque
 from . import sources as S
 from .analytics import FLAP_RULE_IDS, RECOVERY, Analytics
 from .link_evidence import norm_if, parse_log_link_event, traps
-from .syslog_receiver import SyslogReceiver
+from .syslog_receiver import LokiPusher, SyslogReceiver
 from . import valhalla as V
 from .valhalla_views import AlertImporter
 
@@ -44,6 +44,8 @@ class Collector:
         sl = src.get('syslog') or {}
         self.syslog = SyslogReceiver(sl['listen'], self.on_syslog) if sl.get('listen') else None   # Loki が無くても直接受ける
         self.unknown_syslog = {}
+        # 直接受けた syslog の写しを Loki にも入れる(Grafana で見る用)
+        self.loki_push = LokiPusher(sl['loki_push']) if self.syslog and sl.get('loki_push') else None
         # linkDown の trap から、これだけ経っても POLL が up を返し続けるなら、linkUp の trap を取りこぼしたとみなす(秒)
         self.trap_stale_after = float((src.get('snmp_trap') or {}).get('stale_after', TRAP_STALE_AFTER))
         self._stale_traps = {}     # (装置, IF) -> 無効にした linkDown trap の時刻(同じ trap を二度と down に戻さない)
@@ -121,6 +123,8 @@ class Collector:
     def on_syslog(self, ip, msg, t, sev=None):
         """sources.syslog で直接受けた1行(送信元 IP か本文の装置名で装置を決め、Loki の行と同じ流れに入れる)"""
         dev = self.dev_of(ip) or self._dev_in_msg(msg)
+        if self.loki_push:      # 設定に無い装置の行も Grafana では見えるように、先に写しを送る
+            self.loki_push.add(self.devs[dev]['hostname'] if dev else None, ip, msg, t, sev)
         if not dev:
             self.unknown_syslog[ip] = self.unknown_syslog.get(ip, 0) + 1   # 設定に無い装置から(mgmt_ip を確かめる)
             return False
@@ -361,6 +365,9 @@ class Collector:
             except OSError as e:
                 self.errors['syslog'] = f'syslog の受け口 {self.syslog.addr[0]}:{self.syslog.addr[1]} を開けません: {e}'
                 self.syslog = None
+                self.loki_push = None
+        if self.loki_push:
+            self.loki_push.start()
         spec = (self.cfg.get('sources') or {}).get('snmp_trap', {}).get('listen')
         if spec:
             try:
@@ -383,6 +390,8 @@ class Collector:
         self._stop.set()
         if self.syslog:
             self.syslog.stop()
+        if self.loki_push:
+            self.loki_push.stop()
         self.snmp.stop()
         self.sec.stop()
 

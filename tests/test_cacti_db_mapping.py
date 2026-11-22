@@ -147,6 +147,31 @@ def test_load_rrds_replaces_path_rra_and_reads_settings_when_no_rra_dir(tmp_path
     assert r[0]['path'] == '/mnt/rra/1/11.rrd' and len(calls) == 1
 
 
+def test_real_cacti_without_path_rra_setting_finds_where_the_rrds_are(tmp_path, monkeypatch):
+    """本物の Cacti 1.2.26(Ubuntu の apt 版)は settings に path_rra が無く、DB には `<path_rra>/lk-sw1_traffic_in_4.rrd` のまま入る"""
+    p = tmp_path / 'db.php'
+    p.write_text(DEBIAN_PHP)
+
+    def q(conf, sql):
+        if 'path_rra' in sql:
+            return []
+        return [['10.78.0.1', 'LK-SW1', '1', '<path_rra>/lk-sw1_traffic_in_4.rrd', 'Gi1/0/1', 'GigabitEthernet1/0/1', '']]
+    rra = tmp_path / 'var-lib-cacti-rra'
+    rra.mkdir()
+    (rra / 'lk-sw1_traffic_in_4.rrd').write_bytes(b'')
+    monkeypatch.setattr(cacti_db, 'RRA_DIR_CANDIDATES', ['/nonexistent/rra', str(rra)])
+    r = cacti_db.load_rrds({'config': str(p)}, None, query=q)
+    assert r[0]['path'] == str(rra / 'lk-sw1_traffic_in_4.rrd')
+    # ソースから入れた Cacti(<Cacti>/include/config.php)なら <Cacti>/rra を先に見る
+    site = tmp_path / 'cacti'
+    (site / 'include').mkdir(parents=True)
+    (site / 'rra').mkdir()
+    (site / 'rra' / 'a.rrd').write_bytes(b'')
+    assert cacti_db.guess_rra_dir(['<path_rra>/a.rrd'], str(site / 'include' / 'config.php')) == str(site / 'rra')
+    # どこにもまだ無ければ最初の候補(ポーラーがまだ作っていないだけ)
+    assert cacti_db.guess_rra_dir(['<path_rra>/none.rrd'], None) == '/nonexistent/rra'
+
+
 def test_resolve_conf_direct_values_win_and_missing_file_is_explained(tmp_path):
     p = tmp_path / 'db.php'
     p.write_text(DEBIAN_PHP)
