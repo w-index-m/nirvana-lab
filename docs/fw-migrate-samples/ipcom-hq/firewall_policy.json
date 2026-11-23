@@ -1,0 +1,25 @@
+{
+  "FirewallPolicyName": "ipcom-hq-policy",
+  "Description": "暗黙の deny は aws:drop_strict で表す",
+  "FirewallPolicy": {
+    "StatelessDefaultActions": [
+      "aws:forward_to_sfe"
+    ],
+    "StatelessFragmentDefaultActions": [
+      "aws:forward_to_sfe"
+    ],
+    "StatefulEngineOptions": {
+      "RuleOrder": "STRICT_ORDER"
+    },
+    "StatefulDefaultActions": [
+      "aws:drop_strict",
+      "aws:alert_strict"
+    ],
+    "StatefulRuleGroupReferences": [
+      {
+        "ResourceArn": "arn:aws:network-firewall:ap-northeast-1:111122223333:stateful-rulegroup/ipcom-hq-rules",
+        "Priority": 100
+      }
+    ]
+  }
+}
