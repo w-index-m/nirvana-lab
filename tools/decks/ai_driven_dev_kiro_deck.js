@@ -475,6 +475,32 @@ txt(s, [
 txt(s, 'どのやり方でも、aws-cli は「確かめる」ために使うのが基本', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
 s.addNotes('Kiro が IaC を作り、人が aws-cli で設定を入れる、という理解は少し違います。IaC にした場合、設定を入れるのは IaC の道具です。Terraform なら terraform apply、CloudFormation なら変更セットの実行、CDK なら cdk deploy で、本番ではこれを CI/CD が流します。aws-cli は、作業前と作業後に describe などで確かめるために使います。CI/CD が無い会社では人が手で入れますが、その場合も打つのは aws-cli ではなく、terraform plan -out で保存した差分を terraform apply tfplan でそのまま入れる形です。Kiro に aws-cli の手順書を書かせて人が貼り付けるやり方もできますが、それは IaC ではなく昔ながらの手順書の作業で、コードが無いので実物とそろわず、切り戻しも別に書く必要があり、記録は CloudTrail だけになります。');
 
+// 設定の正しさは別の AI に確かめさせる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('設定の正しさは、別の AI に確かめさせればよい?', { placeholder: 'title' });
+txt(s, '良い方法。ただし人の承認の代わりではなく、確認を一段増やすもの。機械の検査・別の AI・人・実際の通信を重ねる', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+const layers = [
+  ['機械的な検査', 'terraform validate・tflint・checkov・cfn-lint・cfn-guard', '必ず守る規則(22 番を 0.0.0.0/0 に開けない など)。何度やっても同じ結果', C.accent4],
+  ['別の AI', '要件定義書と plan の差分を突き合わせる', '要件とのずれ・書き間違い・影響範囲の見落とし', C.accent1],
+  ['人', '差分を読んで承認', '社内の事情に合っているか。責任は人が持つ', C.accent2],
+  ['実際の通信', 'VPC Reachability Analyzer・Network Access Analyzer・実際の接続', '本当に通るか、本当に止まるか', C.accent5],
+];
+layers.forEach(([h, how, what, col], i) => {
+  const y = 1.4 + i * 0.6;
+  hex(s, 0.5, y, 0.44, col, String(i + 1), 'layer hex ' + (i + 1));
+  txt(s, h, { x: 1.05, y: y + 0.02, w: 1.5, h: 0.36, fontSize: 12, bold: true, color: col, valign: 'middle' });
+  txt(s, how, { x: 2.55, y: y - 0.02, w: 3.3, h: 0.48, fontSize: 9.5, color: C.background1, valign: 'middle' });
+  txt(s, what, { x: 5.95, y: y - 0.02, w: 3.55, h: 0.48, fontSize: 9.5, valign: 'middle' });
+});
+card(s, 0.5, 3.85, 4.4, 1.08, 'ai ask card');
+txt(s, '別の AI への頼み方', { x: 0.65, y: 3.92, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent1 });
+txt(s, '×「これで大丈夫?」\n○「この要件とこの plan の差分を比べて、合わない点を全部挙げて」', { x: 0.65, y: 4.22, w: 4.1, h: 0.66, fontSize: 9.5 });
+card(s, 5.1, 3.85, 4.4, 1.08, 'ai limit card');
+txt(s, 'AI だけでは足りない', { x: 5.25, y: 3.92, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent3 });
+txt(s, '社内の事情(どの IP が本社か)は知らない / 間違っていても「問題なし」と答える / 書いた設定が正しくても、通るかは別', { x: 5.25, y: 4.22, w: 4.1, h: 0.66, fontSize: 9.5 });
+txt(s, 'このラボでも、コードを読むだけでは見つからず、動かして初めて見つかったバグが多かった', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('設定の正しさを別の AI に確かめさせるのは良い方法です。ただし人の承認の代わりではなく、確認を一段増やすものとして使います。おすすめは 4 段に重ねることです。1 段目は terraform validate や checkov などの機械的な検査で、22 番を 0.0.0.0/0 に開けない、のような必ず守る規則を見ます。何度やっても同じ結果になるのが強みです。2 段目が別の AI で、要件定義書と plan の差分を突き合わせ、要件とのずれや書き間違いを探させます。頼み方は「これで大丈夫?」ではなく、「合わない点を全部挙げて」とします。3 段目は人で、社内の事情に合っているかを見て承認し、責任を持ちます。4 段目は反映後の実際の通信で、VPC Reachability Analyzer や Network Access Analyzer、実際の接続で、本当に通るか、本当に止まるかを確かめます。AI は社内の事情を知らず、間違っていても問題なしと答えることがあり、書いた設定が正しくても通るかは別の話です。このラボでも、動かして初めて見つかったバグがたくさんありました。');
+
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
