@@ -137,6 +137,27 @@ feats.forEach(([h, b], i) => {
 });
 s.addNotes('4 から 6 の工程は、LLM サンドボックスの中で動いています。クラウド上に用意された使い捨ての Linux コンテナで、Claude はここでエミュレータのサーバーを起動し、net-snmp や gnmic、Playwright を入れて本物のツールを当てます。ユーザーの PC や実機からは隔離されていて、外への通信は許可されたものだけです。コンテナは使い捨てなので、残したい物は Git に push します。今日も途中でコンテナが入れ替わり、依存を入れ直しました。');
 
+// 3b2. サンドボックスは Claude だけのもの?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s.addText('サンドボックスは Claude だけのもの?', { placeholder: 'title' });
+const HD = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 11 };
+const yes = (t) => ({ text: t, options: { color: THEME.colors.accent5, bold: true } });
+const no = (t) => ({ text: t, options: { color: THEME.colors.accent3, bold: true } });
+const nm = (t) => ({ text: t, options: { bold: true, color: C.background1 } });
+s.addTable([
+  [{ text: '製品', options: HD }, { text: '作業場所', options: HD }, { text: 'どこで動くか・外への通信', options: HD }],
+  [nm('Claude Code(クラウド版、今回)'), yes('あり'), { text: 'Anthropic のコンテナ。許可制のプロキシ経由' }],
+  [nm('OpenAI Codex(クラウド版)'), yes('あり'), { text: 'タスクごとのコンテナ。作業中の通信は既定でオフ' }],
+  [nm('ChatGPT のコード実行'), yes('あり'), { text: 'Python 専用の隔離環境。外へは基本出ない' }],
+  [nm('GitHub Copilot のコーディングエージェント'), yes('あり'), { text: 'GitHub Actions の使い捨て環境。ファイアウォールで制御' }],
+  [nm('Jules・Devin・Cursor の裏方など'), yes('あり'), { text: '各社のクラウドの仮想環境' }],
+  [nm('エディタ内の Copilot / Claude Code(PC 版)'), no('なし'), { text: '利用者の PC で直接動く' }],
+], { x: 0.5, y: 1.1, w: 9.0, colW: [3.3, 0.9, 4.8], fontSize: 10.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.4, valign: 'middle', objectName: 'sandbox table' });
+txt(s, '理由はどこも同じ: 安全(PC や本番を壊さない)・使い捨て(毎回まっさら)・出入りを絞れる(許可した宛先だけ)', { x: 0.5, y: 4.05, w: 9, h: 0.4, fontSize: 11 });
+txt(s, '特別なのはサンドボックスがあることではなく、その中で本物のツールを動かして確かめた使い方', { x: 0.5, y: 4.5, w: 9, h: 0.35, fontSize: 12, italic: true, color: C.accent2 });
+txt(s, '2026-11-22 時点。製品の機能・名前はよく変わる(出典は docs/ai-agent-sandboxes.md)', { x: 0.5, y: 4.88, w: 9, h: 0.28, fontSize: 9, color: C.accent6 });
+s.addNotes('このサンドボックスは Claude だけのものではありません。OpenAI の Codex のクラウド版はタスクごとにコンテナを用意し、作業中の外への通信は既定でオフです。GitHub Copilot のコーディングエージェントは、GitHub Actions の使い捨て環境で作業して PR を出します。ChatGPT のコード実行も、Python 専用の隔離環境です。一方、エディタの中で動く Copilot や PC 版の Claude Code は、利用者の PC で直接動くのでサンドボックスではありません。サンドボックスを使う理由はどこも同じで、安全、使い捨て、出入りを絞れることです。この開発で特別だったのは、サンドボックスがあること自体ではなく、その中で本物のツールを動かして確かめながら進めた使い方の方です。');
+
 // 3c. サンドボックスの中身と、さばける量
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
 s.addText('サンドボックスの中身と、さばける量', { placeholder: 'title' });
@@ -496,6 +517,44 @@ rules.forEach(([h, b], i) => {
   txt(s, b, { x: 1.3, y: y + 0.38, w: 8, h: 0.4, fontSize: 12 });
 });
 s.addNotes('AI に任せる範囲が広いほど、決まりが大事です。今日も、強制 push は環境側で止められ、通常のマージで対応しました。main への取り込みは「取り込んで」と言われたときだけ行います。');
+
+// 11b. AI ドリブンで AWS を作るなら
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
+s.addText('AI ドリブンで AWS を作るなら', { placeholder: 'title' });
+const awsFlow = [
+  ['人', '要件を言う', C.accent2],
+  ['Claude', 'Terraform などを書く', C.accent1],
+  ['サンドボックス', 'fmt・validate・plan、模擬環境で試す', C.accent2],
+  ['CI', 'lint・セキュリティ検査・plan を PR に', C.accent5],
+  ['人', 'plan を見て apply を承認', C.accent2],
+  ['Claude', 'describe で確かめ、記録を残す', C.accent1],
+];
+awsFlow.forEach(([who, what, col], i) => {
+  const x = 0.5 + i * 1.53;
+  hex(s, x + 0.4, 1.1, 0.55, col, String(i + 1), 'aws hex ' + (i + 1));
+  txt(s, who, { x, y: 1.65, w: 1.45, h: 0.3, fontSize: 12, bold: true, color: C.background1, align: 'center' });
+  txt(s, what, { x, y: 1.95, w: 1.45, h: 0.7, fontSize: 9.5, align: 'center' });
+});
+card(s, 0.5, 2.8, 4.35, 2.2, 'aws done card');
+card(s, 5.15, 2.8, 4.35, 2.2, 'aws guard card');
+txt(s, 'このラボで実際にやったこと', { x: 0.75, y: 2.92, w: 3.9, h: 0.35, fontSize: 13, bold: true, color: C.accent5 });
+const awsDone = [
+  'ALB を aws-cli の構文で作れる模擬装置にし、本物の HTTP で振り分けを確認',
+  'aws-cli が読む定義(botocore)と突き合わせ、足りない項目を直した',
+  'AWS の IP 範囲(ip-ranges.json)を地図に重ねた',
+  '本物の AWS への構築はまだしていない',
+];
+txt(s, awsDone.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsDone.length - 1 } })), { x: 0.75, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
+txt(s, '本番の AWS で守ること', { x: 5.4, y: 2.92, w: 3.9, h: 0.35, fontSize: 13, bold: true, color: C.accent3 });
+const awsGuard = [
+  'AI に渡す鍵は plan(読み取り)用だけ。apply は人の承認のあと',
+  '鍵はチャットに貼らない。期限付きの権限(OIDC など)を使う',
+  '外への通信は許可制: AWS の API に出る宛先だけ開ける',
+  '費用と削除(destroy)は、必ず人が確かめる',
+];
+txt(s, 'AWS の Kiro を使う場合は別資料「Kiro で AWS を作る」(docs/ai-driven-dev-kiro.pptx)', { x: 0.5, y: 5.05, w: 6, h: 0.2, fontSize: 9, color: C.accent1 });
+txt(s, awsGuard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsGuard.length - 1 } })), { x: 5.4, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
+s.addNotes('AWS の構築も、この資料と同じ流れで AI ドリブンにできます。人が要件を言い、Claude が Terraform などを書き、サンドボックスで fmt・validate・plan を流し、模擬環境で試します。CI で lint やセキュリティ検査を通し、plan の結果を PR に載せます。人が plan を見て apply を承認し、Claude が aws の describe 系コマンドで出来上がりを確かめて記録を残します。このラボで実際にやったのは、ALB を aws-cli の構文で作れる模擬装置にして本物の HTTP で振り分けを確かめたこと、aws-cli が読む定義と突き合わせたこと、AWS の IP 範囲を地図に重ねたことまでで、本物の AWS への構築はまだしていません。本番でやるなら、AI に渡す鍵は読み取り用だけにして apply は人の承認のあとにする、鍵はチャットに貼らない、外への通信は AWS の API だけ開ける、費用と削除は人が確かめる、の 4 つを守ります。詳しくは docs/ai-driven-aws.md にあります。');
 
 // 12. 次の一手
 s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'まとめ' });
