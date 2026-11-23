@@ -264,6 +264,27 @@ Kiro に頼めば aws-cli の手順書(3 つ目)も書けるが、それは IaC 
 - AI だけでは足りない: 社内の事情(どの IP が本社か)は知らない / 間違っていても「問題なし」と答えることがある / 書いた設定が正しくても、通るかは別。
 - このラボでも、コードを読むだけでは見つからず、動かして初めて見つかったバグが多かった。
 
+## Kiro から AWS の状態を直接見られるか
+
+見られる。Kiro は手元の PC で動くので、Kiro のターミナルの aws-cli か AWS の MCP サーバーで、実際の AWS を読める。渡すのは読み取りの権限だけ。
+
+| 見るもの | 例 |
+|---|---|
+| 設定 | `describe-security-groups`・`describe-route-tables`・`describe-load-balancers`・`describe-target-health` |
+| 状態・数値 | CloudWatch のメトリクスとアラーム、Direct Connect の接続と BGP(`describe-virtual-interfaces`) |
+| 変更の記録 | CloudTrail(誰がいつ何を変えたか)、AWS Config(設定の移り変わり) |
+| IaC とのずれ | `terraform plan -refresh-only`、CloudFormation のドリフト検出 |
+
+頼み方の例: 「本番の ALB のターゲットの状態と、ALB 用 SG の 443 番のルールを読み取りだけで確認して、表にして。設定は変えないで」
+
+使うときの決まり:
+- ViewOnlyAccess・SecurityAudit など設定だけを見る権限を、SSO の一時的な資格情報で渡す(ReadOnlyAccess は S3 の中身など一部のデータそのものも読める)。
+- 読んだ結果(IP・構成)は AI に送られる。Lambda の環境変数などの秘密は読ませない。
+- 書き込みを本当に防ぐのは権限。Steering の決まりだけに頼らない。
+
+このラボでも Claude は `/api/cli` で装置の状態を直接読んで確かめた。設計書の道具(`tools/design_docs/alb_design_docs.py`)も describe しか呼ばない。
+Kiro そのものでは試していない(公式の使い方をもとにした整理)。
+
 ## Kiro 以外の AWS の AI 開発ツールとの違い
 
 | ツール | 何のための道具か | Kiro との違い |

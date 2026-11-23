@@ -501,6 +501,31 @@ txt(s, '社内の事情(どの IP が本社か)は知らない / 間違ってい
 txt(s, 'このラボでも、コードを読むだけでは見つからず、動かして初めて見つかったバグが多かった', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
 s.addNotes('設定の正しさを別の AI に確かめさせるのは良い方法です。ただし人の承認の代わりではなく、確認を一段増やすものとして使います。おすすめは 4 段に重ねることです。1 段目は terraform validate や checkov などの機械的な検査で、22 番を 0.0.0.0/0 に開けない、のような必ず守る規則を見ます。何度やっても同じ結果になるのが強みです。2 段目が別の AI で、要件定義書と plan の差分を突き合わせ、要件とのずれや書き間違いを探させます。頼み方は「これで大丈夫?」ではなく、「合わない点を全部挙げて」とします。3 段目は人で、社内の事情に合っているかを見て承認し、責任を持ちます。4 段目は反映後の実際の通信で、VPC Reachability Analyzer や Network Access Analyzer、実際の接続で、本当に通るか、本当に止まるかを確かめます。AI は社内の事情を知らず、間違っていても問題なしと答えることがあり、書いた設定が正しくても通るかは別の話です。このラボでも、動かして初めて見つかったバグがたくさんありました。');
 
+// Kiro から AWS の状態を見る
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Kiro から AWS の状態を直接見られる?', { placeholder: 'title' });
+txt(s, '見られる。Kiro のターミナルの aws-cli か AWS の MCP サーバーで読む。渡すのは読み取りの権限だけ', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '見るもの', options: KH }, { text: '例', options: KH }],
+  [kn('設定'), { text: 'describe-security-groups・describe-route-tables・describe-load-balancers・describe-target-health' }],
+  [kn('状態・数値'), { text: 'CloudWatch のメトリクスとアラーム、Direct Connect の接続と BGP(describe-virtual-interfaces)' }],
+  [kn('変更の記録'), { text: 'CloudTrail(誰がいつ何を変えたか)、AWS Config(設定の移り変わり)' }],
+  [kn('IaC とのずれ'), { text: 'terraform plan -refresh-only、CloudFormation のドリフト検出' }],
+], { x: 0.5, y: 1.4, w: 9.0, colW: [1.8, 7.2], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.36, valign: 'middle', objectName: 'status check table' });
+card(s, 0.5, 3.35, 4.4, 1.58, 'status ask card');
+txt(s, '頼み方の例', { x: 0.65, y: 3.43, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent1 });
+txt(s, '「本番の ALB のターゲットの状態と、ALB 用 SG の 443 番のルールを読み取りだけで確認して、表にして。設定は変えないで」', { x: 0.65, y: 3.75, w: 4.1, h: 1.1, fontSize: 10 });
+card(s, 5.1, 3.35, 4.4, 1.58, 'status rule card');
+txt(s, '使うときの決まり', { x: 5.25, y: 3.43, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent3 });
+const stRules = [
+  'ViewOnlyAccess・SecurityAudit など設定だけ見る権限を、SSO の一時的な資格情報で(ReadOnlyAccess は S3 の中身なども読める)',
+  '読んだ結果(IP・構成)は AI に送られる。秘密は読ませない',
+  '本当に防ぐのは権限。Steering の決まりだけに頼らない',
+];
+txt(s, stRules.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < stRules.length - 1 } })), { x: 5.25, y: 3.73, w: 4.15, h: 1.15, fontSize: 9, paraSpaceAfter: 3 });
+txt(s, 'このラボでも Claude は /api/cli で装置の状態を直接読んで確かめた。設計書の道具も describe しか呼ばない', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('Kiro から AWS の状態を直接見ることはできます。Kiro は手元の PC で動くので、Kiro のターミナルから aws-cli を打つか、AWS の MCP サーバーを通して、実際の AWS を読めます。見られるのは、セキュリティグループやルートテーブル、ロードバランサー、ターゲットの状態などの設定、CloudWatch のメトリクスとアラーム、Direct Connect の接続と BGP の状態、CloudTrail と AWS Config の変更の記録、それに terraform plan の refresh-only やドリフト検出による IaC と実物のずれです。頼むときは「読み取りだけで確認して、設定は変えないで」と書きます。決まりとして、渡すのは ViewOnlyAccess や SecurityAudit のような設定だけを見る権限にし、SSO の一時的な資格情報で渡します。ReadOnlyAccess は S3 の中身など一部のデータそのものも読めてしまいます。読んだ結果は AI に送られるので、秘密は読ませません。書き込みを本当に防ぐのは権限で、Steering の決まりだけに頼りません。このラボでも Claude は装置の状態を直接読んで確かめていて、設計書の道具も describe しか呼びません。Kiro そのものでは試していません。');
+
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
