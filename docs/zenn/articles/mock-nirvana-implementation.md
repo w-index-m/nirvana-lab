@@ -16,6 +16,12 @@ published: false
 
 実装はほぼすべて、Claude Code に日本語で頼んで作りました。この記事では、作ってみて「ここは工夫が要った」と感じた所を中心にまとめます。
 
+:::message
+この記事で紹介しているコード・設定・確認の記録は、すべて GitHub で公開しています。
+:::
+
+https://github.com/w-index-m/nirvana-lab
+
 ## 全体の形: 画面は 1 枚の HTML、データは JSON の API
 
 ```mermaid
@@ -243,4 +249,4 @@ NETLAB_AUTH_DISABLE=1 python app.py
 - 共通の部品はファイルごとコピーし、ずれはテストで見つけます。
 - AI と作ると速く作れます。だからこそ、確かめる仕組み(テストと本物のツール)を先に用意しておくのが大事でした。
 
-実際に打ったコマンドと結果の記録は、リポジトリの `docs/` にあります(`docs/cyber-view-3d.md`、`docs/cyber-view-standalone.md` など)。
+実際に打ったコマンドと結果の記録は、リポジトリ([w-index-m/nirvana-lab](https://github.com/w-index-m/nirvana-lab))の `docs/` にあります(`docs/cyber-view-3d.md`、`docs/cyber-view-standalone.md` など)。
