@@ -308,6 +308,50 @@ txt(s, [
 ], { x: 0.7, y: 4.03, w: 8.6, h: 0.82, fontSize: 10.5 });
 s.addNotes('前のスライドの「値は現物から起こす」を、このラボで実際にやりました。aws-cli の構文で ALB を組み、Web 用と API 用の 2 つのターゲットグループと、/api/ を API 側へ送るルールを作りました。本物の HTTP で、/index.html は web1 と web2 に交互に、/api/ は api1 に振り分けられることを確かめてから、describe の出力を読んで基本設計書とパラメータシートを自動で作りました。値はすべて describe から転記するので、設計書と実物が食い違いません。基本設計書のうち、構成図や方針は値から組み立て、目的や非機能要件は人が書く欄として残しています。同じ道具は本物の AWS にも向けられるように作りましたが、そちらはまだ試していません。');
 
+// サンプル: AWS ネットワーク設計書
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '要件定義書と設計書' });
+s.addText('サンプル: AWS ネットワークの基本設計書', { placeholder: 'title' });
+txt(s, '6 サービスの見本。このラボで Claude が作ったもので、Kiro の出力とは形が違うことがある', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 10.5, color: C.accent1 });
+s.addImage({ path: 'docs/design-samples/aws-network/diagram.png', x: 0.5, y: 1.38, w: 9.0, h: 3.19, altText: 'AWS ネットワーク構成図。IGW と VGW から AZ ごとの Firewall を通って public・app へ。DX は主系・副系、WAF は ALB に関連付け', objectName: 'aws network diagram' });
+const nwParts = [
+  ['基本設計書', '目的・前提・構成図・通信の流れ・6 サービスの設計・可用性・監視・試験 13 項目・未決事項'],
+  ['パラメータシート', 'Excel 11 シート(VPC・サブネット・ルート・SG・DX・ALB・NAT・WAF・NFW・試験)'],
+];
+nwParts.forEach(([h, b], i) => {
+  const x = 0.5 + i * 4.55;
+  card(s, x, 4.62, 4.45, 0.55, 'nw part card ' + (i + 1));
+  txt(s, [{ text: h + ': ', options: { bold: true, color: C.accent5 } }, { text: b }], { x: x + 0.12, y: 4.66, w: 4.2, h: 0.48, fontSize: 9, valign: 'middle' });
+});
+s.addNotes('AWS ネットワークの基本設計書とパラメータシートの見本です。VPC、Direct Connect、ALB、NAT ゲートウェイ、WAF、Network Firewall を扱っています。これはこのラボで Claude が作ったもので、Kiro が実際に出す設計書とは形や項目が違うことがあります。会社名や IP アドレスはすべて架空です。構成は、東京リージョンの 2 つの AZ に public、firewall、app、db のサブネットを置き、インターネットとオンプレの出入りを両方とも Network Firewall で検査します。Direct Connect は 2 つのロケーションに 1 本ずつ、WAF は ALB に関連付けます。基本設計書には目的から試験、未決事項まで、パラメータシートは Excel の 11 シートです。');
+
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '要件定義書と設計書' });
+s.addText('設計書の矛盾は、計算で確かめる', { placeholder: 'title' });
+txt(s, '値を 1 か所に置いて設計書とパラメータシートを作り、ルートの行きと帰りなど 12 項目を機械的に確かめた', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11, color: C.accent1 });
+card(s, 0.5, 1.4, 4.2, 3.5, 'nw check card');
+txt(s, '確かめること(12 項目)', { x: 0.65, y: 1.48, w: 3.9, h: 0.3, fontSize: 12, bold: true, color: C.accent5 });
+const nwChecks = [
+  'サブネットが VPC の中・重ならない・オンプレと重ならない',
+  'ルートの行き先が定義済み、同じ AZ の Firewall・NAT を使う',
+  '外へ出る通信は必ず Firewall を通る',
+  '行きと帰りが同じ Firewall を通る(ずれると通信が切れる)',
+  'SG の参照先、WAF の WCU、DX の 2 ロケーションとコミュニティ',
+];
+txt(s, nwChecks.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < nwChecks.length - 1 } })), { x: 0.65, y: 1.85, w: 3.95, h: 3.0, fontSize: 10, paraSpaceAfter: 6 });
+card(s, 4.9, 1.4, 4.6, 3.5, 'nw found card');
+txt(s, '見つかった抜け(最初の版)', { x: 5.05, y: 1.48, w: 4.3, h: 0.3, fontSize: 12, bold: true, color: C.accent3 });
+s.addTable([
+  [{ text: '通信', options: KH }, { text: '行き', options: KH }, { text: '戻り', options: KH }],
+  [{ text: 'public → オンプレ' }, { text: 'Firewall 1a → VGW' }, { text: 'VGW → 直接(Firewall を飛ばす)', options: { color: C.accent3, bold: true } }],
+], { x: 5.05, y: 1.88, w: 4.3, colW: [1.25, 1.35, 1.7], fontSize: 9, color: C.background2, fill: { color: C.text1 }, border: { type: 'solid', pt: 1, color: C.text2 }, rowH: 0.42, valign: 'middle', objectName: 'nw found table' });
+const nwFix = [
+  '原因: VGW 側のルートテーブルに public サブネットの行が無かった',
+  '直し方: 行を足して、戻りも同じ AZ の Firewall へ',
+  'もう 1 つ: パラメータシートに Firewall のポリシー設定が無い(テストで発見)',
+];
+txt(s, nwFix.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < nwFix.length - 1 } })), { x: 5.05, y: 3.0, w: 4.35, h: 1.85, fontSize: 10, paraSpaceAfter: 6 });
+txt(s, 'Kiro で作った設計書にも同じ考え方が使える: 値を 1 か所に、矛盾は人の目でなく計算で。値は架空、本物の AWS には未投入', { x: 0.5, y: 4.97, w: 9, h: 0.28, fontSize: 9.5, color: C.accent6 });
+s.addNotes('この見本では、値を 1 か所に置いて、そこから設計書とパラメータシートの両方を作り、矛盾を計算で確かめました。確かめるのは 12 項目で、サブネットの重なり、同じ AZ の Firewall と NAT を使うか、外へ出る通信は必ず Firewall を通るか、そして行きと帰りが同じ Firewall を通るか、などです。最初の版で実際に抜けが見つかりました。public サブネットからオンプレへの通信は、行きは Firewall を通るのに、戻りは VGW 側のルートテーブルに public の行が無かったため、Firewall を飛ばして直接戻っていました。行きと帰りがずれるとステートフルの検査で通信が切れます。行を足して直しました。もう 1 つ、パラメータシートに Firewall のポリシーの設定が無いことをテストで見つけました。Kiro で作った設計書でも同じ考え方が使えます。値は 1 か所に置き、矛盾は人の目ではなく計算で確かめます。値は架空で、本物の AWS には入れていません。');
+
 // 操作手順
 pres.addSection({ title: '使い方と運用' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
