@@ -426,6 +426,37 @@ txt(s, [
 txt(s, 'Kiro が書くのは手順書の下書きと確認のコマンド。決めて・承認して・確かめるのが人', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
 s.addNotes('人が入る手順書は、IaC の作業の前と後か、という質問です。ほぼ合っていますが、もう一か所あります。IaC の途中、plan や変更セットの差分を読んで承認するところです。作業前は、変更の申請と承認、作業時間と関係者への連絡、今のルールの記録、切り戻す条件の決定です。途中は、差分の中に削除や 0.0.0.0/0 の許可、作り直しが無いかを読み、PR とデプロイを承認します。反映そのものは CI/CD が行い、人も Kiro も手で apply しません。作業後は、通すべき通信が通り、止めるべき通信が止まることを確かめ、VPC フローログや Firewall のログでも確認し、監視とずれの確認、完了の連絡をします。だめなら切り戻します。さらに、相手側の firewall や Direct Connect の事業者、他チームの設定、実際の利用者での確認のように IaC の外にある作業も、人の作業として手順書に書きます。');
 
+// Kiro への依頼のしかた
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('設定を反映するとき、Kiro にどう頼む?', { placeholder: 'title' });
+txt(s, '「反映して」とは頼まない。頼むのは「IaC を直して plan まで、PR にして」まで。反映は CI/CD', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.38, 3.0, 3.55, 'steering card');
+txt(s, '0. 先に決まりを書く', { x: 0.65, y: 1.46, w: 2.75, h: 0.3, fontSize: 12, bold: true, color: C.accent4 });
+txt(s, '.kiro/steering/aws-change.md(一度だけ)', { x: 0.65, y: 1.76, w: 2.75, h: 0.25, fontSize: 9, color: C.accent6 });
+const steerRules = [
+  'apply と aws の書き込み系コマンドは実行しない',
+  '変えるのは terraform/ の下だけ',
+  'plan に削除・作り直し・0.0.0.0/0 があれば止めて報告',
+  'PR 本文に plan の要約・影響範囲・切り戻し・確認コマンド',
+];
+txt(s, steerRules.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < steerRules.length - 1 } })), { x: 0.65, y: 2.08, w: 2.75, h: 2.3, fontSize: 9.5, paraSpaceAfter: 5 });
+txt(s, 'これで毎回の依頼が短くなる', { x: 0.65, y: 4.5, w: 2.75, h: 0.3, fontSize: 9.5, italic: true, color: C.accent5 });
+const asks = [
+  ['Spec を作らせる', '本番の ALB 用 SG で、443 の受け付けを 0.0.0.0/0 から社内の 203.0.113.0/24 だけに絞りたい。対象は terraform/prod/network/sg_alb.tf。Spec を作って', '要件・設計・作業項目を 1 段ずつ人が承認'],
+  ['plan まで', 'タスクを実行して。fmt・validate・plan まで。apply はしないで。削除・作り直し・0.0.0.0/0 があれば先に教えて', '人が plan の差分を読む(途中の承認)'],
+  ['PR にさせる', 'feature/sg-alb-restrict でコミットして PR を作って。本文に plan の要約・影響範囲・切り戻し・確認コマンドを', 'CI → 人の承認 → CI/CD が反映'],
+  ['反映後に確かめる', '反映が終わった。describe-security-groups で 443 のルールを確認して表で。パラメータシートも更新して', '期待どおりかを人が見る'],
+];
+asks.forEach(([h, q, who], i) => {
+  const y = 1.38 + i * 0.9;
+  hex(s, 3.7, y + 0.05, 0.4, C.accent1, String(i + 1), 'ask hex ' + (i + 1));
+  txt(s, h, { x: 4.2, y: y, w: 1.9, h: 0.28, fontSize: 11.5, bold: true, color: C.background1 });
+  txt(s, '→ ' + who, { x: 6.1, y: y + 0.02, w: 3.4, h: 0.26, fontSize: 9, color: C.accent2 });
+  txt(s, '「' + q + '」', { x: 4.2, y: y + 0.3, w: 5.3, h: 0.55, fontSize: 9.5, color: C.background2 });
+});
+txt(s, 'こつ: 環境・ファイル・やりたいことを具体的に / やってほしくないことを書く / 確かめ方も頼む。「本番の SG 直しておいて」は NG', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 9.5, color: C.accent6 });
+s.addNotes('Kiro で設定を反映するときの頼み方です。ポイントは「反映して」とは頼まないことです。頼むのは、IaC を直して plan まで出し、PR にするところまでで、本番への反映は CI/CD が行います。まず一度だけ、Steering に決まりを書いておきます。apply や AWS の書き込み系のコマンドは実行しない、変えるのは terraform の下だけ、plan に削除や作り直し、0.0.0.0/0 の許可があれば止めて報告する、PR の本文には plan の要約と影響範囲、切り戻しと確認のコマンドを書く、といった内容です。これで毎回の依頼が短くなります。依頼は 4 回に分けます。1 回目は、環境とファイルとやりたいことを書いて Spec を作らせ、要件、設計、作業項目を 1 段ずつ承認します。2 回目は plan まで実行させ、人が差分を読みます。3 回目は PR を作らせ、CI と人の承認を経て CI/CD が反映します。4 回目は反映後に describe で確かめさせ、パラメータシートも更新させます。「本番の SG 直しておいて」のようなあいまいな頼み方は、権限があれば Kiro が API で直接変えてしまうおそれがあるので避けます。1 行の小さな変更なら、Spec を作らずチャットで頼んでも十分です。');
+
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
