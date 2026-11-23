@@ -574,8 +574,39 @@ fwSteps.forEach(([h, b], i) => {
   txt(s, h, { x: 5.72, y: y, w: 3.8, h: 0.3, fontSize: 12, bold: true, color: C.background1 });
   txt(s, b, { x: 5.72, y: y + 0.32, w: 3.8, h: 0.3, fontSize: 10 });
 });
-txt(s, 'ラボの模擬 FortiGate・ASA で変換と対応表までは試せる(本物の AWS は無い)', { x: 0.5, y: 4.97, w: 9, h: 0.3, fontSize: 9.5, color: C.accent6 });
-s.addNotes('firewall の移行で、設定を貼り付ける前に気をつけることと、進め方です。会社の設定は機密情報なので、VPN の事前共有鍵、管理者パスワードのハッシュ、SNMP のコミュニティ名は消すか置き換えます。必要ならグローバル IP や社内のホスト名も伏せます。社外の AI に渡してよいかを社内の決まりで確かめ、Kiro のデータの扱いも確認します。長年使ってきた設定には使っていないルールが混ざっているので、ヒット数を見て整理してから移すと、対応表の確認が楽になります。進め方は 5 段階です。機密を伏せて渡してルールの一覧と対応表を作らせ、人が対応表を確かめ、IaC と plan を作らせて機械の検査と別の AI で確かめてから人が承認し、検証環境で通るべき通信と止まるべき通信を全部試し、できればしばらく今の機器と並行して動かしてログを比べてから切り替えます。このラボの模擬 FortiGate や ASA で変換を試すことはできますが、本物の AWS は無いので、確かめられるのは変換と対応表までです。');
+txt(s, '次のページ: ラボの模擬 IPCOM で実際に変換して、元の機器と結果を比べた', { x: 0.5, y: 4.97, w: 9, h: 0.3, fontSize: 9.5, color: C.accent6 });
+s.addNotes('firewall の移行で、設定を貼り付ける前に気をつけることと、進め方です。会社の設定は機密情報なので、VPN の事前共有鍵、管理者パスワードのハッシュ、SNMP のコミュニティ名は消すか置き換えます。必要ならグローバル IP や社内のホスト名も伏せます。社外の AI に渡してよいかを社内の決まりで確かめ、Kiro のデータの扱いも確認します。長年使ってきた設定には使っていないルールが混ざっているので、ヒット数を見て整理してから移すと、対応表の確認が楽になります。進め方は 5 段階です。機密を伏せて渡してルールの一覧と対応表を作らせ、人が対応表を確かめ、IaC と plan を作らせて機械の検査と別の AI で確かめてから人が承認し、検証環境で通るべき通信と止まるべき通信を全部試し、できればしばらく今の機器と並行して動かしてログを比べてから切り替えます。次のページで、このラボの模擬 IPCOM の設定を実際に変換して確かめた結果を見ます。');
+
+// ラボで試した: 模擬 IPCOM → Network Firewall
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('ラボで試した: 模擬 IPCOM → Network Firewall', { placeholder: 'title' });
+txt(s, '設定の文字を読んで、Network Firewall の設定・対応表・確認用の通信を作る道具(tools/fw_migrate/ipcom_to_nfw.py)', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11, color: C.accent1 });
+const ipStats = [
+  ['6 → 8', '元のルール → 新しいルール(ポートごとに分けた)', C.accent1],
+  ['3 / 3', '移した / 要確認(送信元 any の外側のルール)', C.accent2],
+  ['OK', 'API の型定義(botocore)で JSON の形を確認', C.accent5],
+  ['3 行', '機密(パスワード・コミュニティ・事前共有鍵)は値を出さない', C.accent4],
+];
+ipStats.forEach(([v, d, col], i) => {
+  const y = 1.42 + i * 0.86;
+  card(s, 0.5, y, 3.6, 0.76, 'ipcom stat card ' + (i + 1));
+  txt(s, v, { x: 0.65, y: y + 0.08, w: 1.05, h: 0.6, fontSize: 20, bold: true, color: col, valign: 'middle' });
+  txt(s, d, { x: 1.7, y: y + 0.08, w: 2.3, h: 0.6, fontSize: 9.5, valign: 'middle' });
+});
+card(s, 4.3, 1.42, 5.2, 3.44, 'ipcom diff card');
+txt(s, '確認用の通信 21 本のうち、1 本で結果が違った', { x: 4.5, y: 1.52, w: 4.85, h: 0.32, fontSize: 12.5, bold: true, color: C.accent3 });
+s.addTable([
+  [{ text: '通信', options: KH }, { text: '元の機器', options: KH }, { text: '新しいルール', options: KH }],
+  [{ text: 'LAN(192.168.10.10)→ 外 22/tcp' }, { text: 'PASS(LAN の lan-out)', options: { color: C.accent5, bold: true } }, { text: 'DROP(sid 12000)', options: { color: C.accent3, bold: true } }],
+], { x: 4.5, y: 1.92, w: 4.85, colW: [1.95, 1.45, 1.45], fontSize: 9.5, color: C.background2, fill: { color: C.text1 }, border: { type: 'solid', pt: 1, color: C.text2 }, rowH: 0.4, valign: 'middle', objectName: 'ipcom diff table' });
+const ipWhy = [
+  '原因: WAN に付いていた ssh-deny(送信元 any → 22 を止める)は、元は「外から入る通信」だけに効いた',
+  'Network Firewall にはインタフェースの区別が無く、LAN から外へ出る ssh まで止めてしまう',
+  '直し方は人が決める: 送信元を外側に絞る、またはルールの順番を変える',
+];
+txt(s, ipWhy.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < ipWhy.length - 1 } })), { x: 4.5, y: 2.95, w: 4.85, h: 1.85, fontSize: 10, paraSpaceAfter: 6 });
+txt(s, '書き方を変えただけでは見えない違いを、両方の判定を計算して比べると見つけられる。IPCOM の構文は模擬、本物の AWS には未投入', { x: 0.5, y: 4.95, w: 9, h: 0.3, fontSize: 9.5, color: C.accent6 });
+s.addNotes('このラボで、模擬の IPCOM の設定を実際に Network Firewall の設定に変換してみました。道具は設定の文字を読み、Network Firewall の JSON と Terraform、対応表、確認用の通信を作ります。元のルール 6 本は、ポートごとに分けて新しいルール 8 本になりました。3 本はそのまま移せて、送信元が any の外側のルール 3 本は要確認にしています。JSON の形は、aws-cli と同じ AWS の API の型定義で確かめました。パスワード、SNMP のコミュニティ、VPN の事前共有鍵の 3 行は、値をどこにも出さず行番号だけを残します。確認用の通信 21 本について、元の機器ならどうなるか、新しいルールならどうなるかを両方計算して比べたところ、1 本だけ結果が違いました。LAN から外への ssh です。元の機器では LAN 側のルールで許可されますが、新しいルールでは、WAN に付いていた ssh を止めるルールが先に当たって止まってしまいます。元は外から入る通信だけに効いていたルールが、インタフェースの区別が無くなって内側の通信にも効いたためです。直し方は人が決めます。書き方を変えるだけでは見えない違いが、両方の判定を比べることで見つかりました。なお IPCOM の構文は模擬で、本物の AWS には入れていません。');
 
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
