@@ -236,7 +236,7 @@ Prometheus を画面上で「ヴァルハラ」と呼んでいます。理由は
 
 ```bash
 git clone https://github.com/w-index-m/nirvana-lab
-cd network-lab-emulator
+cd nirvana-lab
 pip install -r requirements.txt
 NETLAB_AUTH_DISABLE=1 python app.py
 # → http://localhost:8000/cyber-view (DEMO ボタンで障害シナリオが流れます)
