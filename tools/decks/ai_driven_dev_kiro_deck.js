@@ -526,6 +526,57 @@ txt(s, stRules.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i <
 txt(s, 'このラボでも Claude は /api/cli で装置の状態を直接読んで確かめた。設計書の道具も describe しか呼ばない', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
 s.addNotes('Kiro から AWS の状態を直接見ることはできます。Kiro は手元の PC で動くので、Kiro のターミナルから aws-cli を打つか、AWS の MCP サーバーを通して、実際の AWS を読めます。見られるのは、セキュリティグループやルートテーブル、ロードバランサー、ターゲットの状態などの設定、CloudWatch のメトリクスとアラーム、Direct Connect の接続と BGP の状態、CloudTrail と AWS Config の変更の記録、それに terraform plan の refresh-only やドリフト検出による IaC と実物のずれです。頼むときは「読み取りだけで確認して、設定は変えないで」と書きます。決まりとして、渡すのは ViewOnlyAccess や SecurityAudit のような設定だけを見る権限にし、SSO の一時的な資格情報で渡します。ReadOnlyAccess は S3 の中身など一部のデータそのものも読めてしまいます。読んだ結果は AI に送られるので、秘密は読ませません。書き込みを本当に防ぐのは権限で、Steering の決まりだけに頼りません。このラボでも Claude は装置の状態を直接読んで確かめていて、設計書の道具も describe しか呼びません。Kiro そのものでは試していません。');
 
+// 会社の firewall の設定から AWS Network Firewall を作る
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('今の firewall から Network Firewall を作れる?', { placeholder: 'title' });
+txt(s, '下書きなら作れる。大事なのは「元のルール 1 本ずつがどこへ移ったか」の対応表も作らせ、人が突き合わせること', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.4, 2.9, 3.5, 'fwmig make card');
+txt(s, 'Kiro に作らせるもの', { x: 0.65, y: 1.48, w: 2.6, h: 0.3, fontSize: 12, bold: true, color: C.accent5 });
+const fwMake = [
+  'Network Firewall の IaC(ポリシー・ステートフルのルールグループ・IP セット / ポートセット)',
+  '対応表: 元のルール番号 → 新しいルール。移さないものは理由',
+  '確認用の通信の一覧(通るべき・止まるべき)',
+];
+txt(s, fwMake.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwMake.length - 1 } })), { x: 0.65, y: 1.85, w: 2.65, h: 3.0, fontSize: 10, paraSpaceAfter: 6 });
+const FKH = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 10 };
+s.addTable([
+  [{ text: '今の機器(FortiGate・Palo Alto・ASA)', options: FKH }, { text: 'AWS 側(人が決めるところ)', options: FKH }],
+  [kn('ゾーン(inside・outside・DMZ)'), { text: 'ゾーンは無い。VPC・サブネットとルートテーブルで通り道を作る(一番大変)' }],
+  [kn('上から順に、最初に一致したもの'), { text: '順番を守るなら strict order を選ぶ' }],
+  [kn('NAT'), { text: 'Network Firewall は NAT をしない。NAT ゲートウェイなどを別に' }],
+  [kn('IPsec VPN'), { text: 'Site-to-Site VPN などで別に作る' }],
+  [kn('アプリ・ユーザーの識別、ウイルス対策、URL カテゴリ'), { text: '一部はドメインの一覧・Suricata ルール・TLS 検査で。同じにはならないものもある' }],
+  [kn('単純な許可ルール'), { text: 'セキュリティグループで足りることが多い' }],
+], { x: 3.6, y: 1.4, w: 5.9, colW: [2.4, 3.5], fontSize: 9, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.48, valign: 'middle', objectName: 'fw mapping table' });
+txt(s, '設定の書き方を変えるのは AI が速い。通り道(ゾーン → VPC・ルート)の設計は人', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10.5, italic: true, color: C.accent2 });
+s.addNotes('今の会社の firewall の設定を Kiro に貼り付けて、AWS Network Firewall の設定を作ることはできます。ただし下書きまでで、大事なのは、元のルール 1 本ずつが新しい設定のどこへ移ったかの対応表も作らせて、人が突き合わせることです。Kiro に作らせるのは、Network Firewall の IaC、つまりポリシー、ステートフルのルールグループ、元の機器のアドレスやサービスのオブジェクトに当たる IP セットとポートセット、それに対応表と、確認用の通信の一覧です。そのまま移らないところもあります。今の機器のゾーンは AWS には無く、VPC とサブネット、ルートテーブルで通り道を作ります。ここが一番大変です。上から順に評価する作りを守るなら strict order を選びます。Network Firewall は NAT をしないので NAT ゲートウェイなどを別に用意し、IPsec VPN も別に作ります。アプリやユーザーの識別、ウイルス対策、URL カテゴリは、一部をドメインの一覧や Suricata ルール、TLS 検査で置き換えますが、同じにはならないものもあります。単純な許可ルールは、セキュリティグループで足りることが多いです。');
+
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('firewall の移行: 貼り付ける前と、進め方', { placeholder: 'title' });
+card(s, 0.5, 1.05, 4.35, 3.85, 'fwmig caution card');
+txt(s, '貼り付ける前に', { x: 0.75, y: 1.15, w: 3.9, h: 0.32, fontSize: 13, bold: true, color: C.accent3 });
+const fwCaution = [
+  '会社の設定は機密。VPN の事前共有鍵・管理者パスワードのハッシュ・SNMP のコミュニティ名は消すか置き換える。必要ならグローバル IP・社内のホスト名も',
+  '社外の AI に渡してよいかを社内の決まりで確かめる。Kiro のデータの扱い(学習に使われる設定など)も確認',
+  '使っていないルールが混ざっている。ヒット数を見て整理してから移すと、対応表の確認が楽',
+];
+txt(s, fwCaution.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwCaution.length - 1 } })), { x: 0.75, y: 1.55, w: 3.95, h: 3.25, fontSize: 10.5, paraSpaceAfter: 8 });
+const fwSteps = [
+  ['機密を伏せて渡す', 'ルールの一覧と対応表を作らせる'],
+  ['人が対応表を確かめる', '移さないルールの理由・ゾーンの置き換え'],
+  ['IaC と plan', '機械の検査・別の AI で確かめ、人が承認'],
+  ['検証環境で全部試す', '通るべき通信・止まるべき通信'],
+  ['しばらく並行で動かす', '今の機器とログを比べてから切り替え'],
+];
+fwSteps.forEach(([h, b], i) => {
+  const y = 1.05 + i * 0.77;
+  hex(s, 5.15, y + 0.03, 0.44, i === 1 || i === 3 ? C.accent2 : C.accent1, String(i + 1), 'fwmig step hex ' + (i + 1));
+  txt(s, h, { x: 5.72, y: y, w: 3.8, h: 0.3, fontSize: 12, bold: true, color: C.background1 });
+  txt(s, b, { x: 5.72, y: y + 0.32, w: 3.8, h: 0.3, fontSize: 10 });
+});
+txt(s, 'ラボの模擬 FortiGate・ASA で変換と対応表までは試せる(本物の AWS は無い)', { x: 0.5, y: 4.97, w: 9, h: 0.3, fontSize: 9.5, color: C.accent6 });
+s.addNotes('firewall の移行で、設定を貼り付ける前に気をつけることと、進め方です。会社の設定は機密情報なので、VPN の事前共有鍵、管理者パスワードのハッシュ、SNMP のコミュニティ名は消すか置き換えます。必要ならグローバル IP や社内のホスト名も伏せます。社外の AI に渡してよいかを社内の決まりで確かめ、Kiro のデータの扱いも確認します。長年使ってきた設定には使っていないルールが混ざっているので、ヒット数を見て整理してから移すと、対応表の確認が楽になります。進め方は 5 段階です。機密を伏せて渡してルールの一覧と対応表を作らせ、人が対応表を確かめ、IaC と plan を作らせて機械の検査と別の AI で確かめてから人が承認し、検証環境で通るべき通信と止まるべき通信を全部試し、できればしばらく今の機器と並行して動かしてログを比べてから切り替えます。このラボの模擬 FortiGate や ASA で変換を試すことはできますが、本物の AWS は無いので、確かめられるのは変換と対応表までです。');
+
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
