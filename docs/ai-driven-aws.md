@@ -235,6 +235,20 @@ Kiro が書くのは手順書の下書きと確認のコマンドまで。決め
 1 行の小さな変更なら Spec を作らずチャットで「cidr を変えて plan を見せて」でもよい(Spec は後から理由を追いたい変更向け)。
 Kiro は実際には動かしていない。依頼文は公式の使い方(Spec・Steering)をもとにした例。
 
+## Kiro が IaC を作り、人が aws-cli で入れるのか
+
+少し違う。IaC にした場合、設定を入れるのは IaC の道具(Terraform は `terraform apply`、CloudFormation は変更セットの実行、CDK は `cdk deploy`)で、
+本番ではこれを CI/CD が流す。aws-cli は作業前後の確認(`describe-*` などの読み取り)に使う。
+
+| やり方 | 設定を入れるもの | 人の役割 | 気をつけること |
+|---|---|---|---|
+| IaC + CI/CD(おすすめ) | パイプラインが `terraform apply` など | 差分を読んで承認 | 承認した差分だけが入る。記録が Git に残る |
+| IaC + 手で入れる | 人が `terraform apply tfplan` など | 承認したうえで自分で入れる | `plan -out` で保存した差分をそのまま入れる。CloudFormation は変更セットを確かめて実行 |
+| 手順書(IaC なし) | 人が aws-cli を貼り付け | 手順書を確認して入れる | コードが無いので実物とそろわない。切り戻しは別に書く。記録は CloudTrail だけ |
+
+CI/CD が無いときは `terraform plan -out=tfplan` → 人が差分を読む → `terraform apply tfplan`。
+Kiro に頼めば aws-cli の手順書(3 つ目)も書けるが、それは IaC ではない。どのやり方でも aws-cli は「確かめる」ために使うのが基本。
+
 ## Kiro 以外の AWS の AI 開発ツールとの違い
 
 | ツール | 何のための道具か | Kiro との違い |

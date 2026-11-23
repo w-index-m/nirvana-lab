@@ -457,6 +457,24 @@ asks.forEach(([h, q, who], i) => {
 txt(s, 'こつ: 環境・ファイル・やりたいことを具体的に / やってほしくないことを書く / 確かめ方も頼む。「本番の SG 直しておいて」は NG', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 9.5, color: C.accent6 });
 s.addNotes('Kiro で設定を反映するときの頼み方です。ポイントは「反映して」とは頼まないことです。頼むのは、IaC を直して plan まで出し、PR にするところまでで、本番への反映は CI/CD が行います。まず一度だけ、Steering に決まりを書いておきます。apply や AWS の書き込み系のコマンドは実行しない、変えるのは terraform の下だけ、plan に削除や作り直し、0.0.0.0/0 の許可があれば止めて報告する、PR の本文には plan の要約と影響範囲、切り戻しと確認のコマンドを書く、といった内容です。これで毎回の依頼が短くなります。依頼は 4 回に分けます。1 回目は、環境とファイルとやりたいことを書いて Spec を作らせ、要件、設計、作業項目を 1 段ずつ承認します。2 回目は plan まで実行させ、人が差分を読みます。3 回目は PR を作らせ、CI と人の承認を経て CI/CD が反映します。4 回目は反映後に describe で確かめさせ、パラメータシートも更新させます。「本番の SG 直しておいて」のようなあいまいな頼み方は、権限があれば Kiro が API で直接変えてしまうおそれがあるので避けます。1 行の小さな変更なら、Spec を作らずチャットで頼んでも十分です。');
 
+// 設定を入れるのは誰?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Kiro が IaC を作り、人が aws-cli で入れる?', { placeholder: 'title' });
+txt(s, '少し違う。IaC なら設定を入れるのは IaC の道具(terraform apply・変更セット・cdk deploy)。aws-cli は作業前後の確認(describe)に使う', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: 'やり方', options: KH }, { text: '設定を入れるもの', options: KH }, { text: '人の役割', options: KH }, { text: '気をつけること', options: KH }],
+  [kn('IaC + CI/CD(おすすめ)'), { text: 'パイプラインが terraform apply など' }, { text: '差分を読んで承認' }, { text: '承認した差分だけが入る。記録が Git に残る' }],
+  [kn('IaC + 手で入れる'), { text: '人が terraform apply tfplan など' }, { text: '承認したうえで自分で入れる' }, { text: 'plan -out で保存した差分をそのまま入れる。CloudFormation は変更セットを確かめて実行' }],
+  [kn('手順書(IaC なし)'), { text: '人が aws-cli を貼り付け' }, { text: '手順書を確認して入れる' }, { text: 'コードが無いので実物とそろわない。切り戻しは別に書く。記録は CloudTrail だけ' }],
+], { x: 0.5, y: 1.6, w: 9.0, colW: [2.1, 2.2, 1.9, 2.8], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.62, valign: 'middle', objectName: 'apply who table' });
+card(s, 0.5, 4.2, 9.0, 0.7, 'apply who note card');
+txt(s, [
+  { text: 'CI/CD が無いとき: ', options: { bold: true, color: C.accent5 } },
+  { text: 'terraform plan -out=tfplan → 人が差分を読む → terraform apply tfplan。Kiro に頼めば手順書(3 つ目)も書けるが、それは IaC ではない' },
+], { x: 0.7, y: 4.27, w: 8.6, h: 0.58, fontSize: 10.5, valign: 'middle' });
+txt(s, 'どのやり方でも、aws-cli は「確かめる」ために使うのが基本', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
+s.addNotes('Kiro が IaC を作り、人が aws-cli で設定を入れる、という理解は少し違います。IaC にした場合、設定を入れるのは IaC の道具です。Terraform なら terraform apply、CloudFormation なら変更セットの実行、CDK なら cdk deploy で、本番ではこれを CI/CD が流します。aws-cli は、作業前と作業後に describe などで確かめるために使います。CI/CD が無い会社では人が手で入れますが、その場合も打つのは aws-cli ではなく、terraform plan -out で保存した差分を terraform apply tfplan でそのまま入れる形です。Kiro に aws-cli の手順書を書かせて人が貼り付けるやり方もできますが、それは IaC ではなく昔ながらの手順書の作業で、コードが無いので実物とそろわず、切り戻しも別に書く必要があり、記録は CloudTrail だけになります。');
+
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });
