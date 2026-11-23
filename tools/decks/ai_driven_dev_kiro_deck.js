@@ -377,6 +377,55 @@ txt(s, [
 txt(s, '手順書の正しさは、検証環境で実際に通して初めてわかる', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
 s.addNotes('作業手順書や運用手順書も、下書きなら Kiro で作れます。IaC のコードと tasks.md、describe の結果から、コマンドと確認方法の入った手順書を起こせます。事前確認、作業手順、確認方法、切り戻し、日々の運用の章ごとに、Kiro に書かせる中身と、人が確かめることを分けました。特に切り戻しは、作り直しが起きた変更だと戻せないことがあるので、人が確かめます。会社の手順書のひな形を Steering に入れ、値は現物から起こし、検証環境で手順書どおりに一度通してから本番に使ってください。Direct Connect の物理作業は、事業者の手順と合わせる必要があります。');
 
+// チャットで firewall を変えられる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Claude のようにチャットで firewall も変えられる?', { placeholder: 'title' });
+txt(s, 'できる。ただし「装置にログインする」のではなく、手元の AWS の権限で API を呼ぶ形。本番は直接変えず、チャット → IaC の差分 → 承認 → CI/CD が正しい', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.6, 4.35, 3.3, 'fw direct card');
+card(s, 5.15, 1.6, 4.35, 3.3, 'fw iac card');
+txt(s, 'A. チャットから直接変える', { x: 0.75, y: 1.72, w: 3.9, h: 0.32, fontSize: 13, bold: true, color: C.accent3 });
+const fwDirect = [
+  'Kiro が aws-cli か AWS の MCP サーバーで API を呼ぶ(セキュリティグループ・NACL・Network Firewall・WAF)',
+  '効くのは Kiro に渡した権限の範囲だけ。動くのは手元の PC の資格情報',
+  'セキュリティグループの変更はすぐ効く。間違えると自分の接続も切れる',
+  'コードと実物がずれ、レビューも残らない → 検証環境・調査まで',
+];
+txt(s, fwDirect.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwDirect.length - 1 } })), { x: 0.75, y: 2.1, w: 3.95, h: 2.7, fontSize: 10.5, paraSpaceAfter: 6 });
+txt(s, 'B. チャットで IaC を直させる(本番)', { x: 5.4, y: 1.72, w: 3.95, h: 0.32, fontSize: 13, bold: true, color: C.accent5 });
+const fwIac = [
+  '「443 を社内だけに」と頼むと、Kiro が IaC のルールを書き換えて plan まで出す',
+  '人が差分を読む(削除・0.0.0.0/0・作り直しが無いか)',
+  'PR → CI → 人の承認 → CI/CD が反映。Kiro に本番の書き込み権限は渡さない',
+  'オンプレの FortiGate・Palo Alto も、Terraform のプロバイダがあれば同じ流れ',
+];
+txt(s, fwIac.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwIac.length - 1 } })), { x: 5.4, y: 2.1, w: 3.95, h: 2.7, fontSize: 10.5, paraSpaceAfter: 6 });
+txt(s, 'このラボの Claude も同じ: 模擬装置はチャットから直接変えたが、自宅の実機(WS-C3650)はユーザーが手で入れた', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 10.5, italic: true, color: C.accent2 });
+s.addNotes('Claude とのチャットのように、Kiro からも firewall などを変えられるか、という質問への答えは「できる」です。ただし装置にログインして設定するのではなく、手元の PC にある AWS の資格情報で、aws-cli や AWS の MCP サーバーを通して API を呼ぶ形になります。セキュリティグループ、ネットワーク ACL、Network Firewall、WAF などが対象で、効くのは Kiro に渡した権限の範囲だけです。チャットから直接変えるやり方は、セキュリティグループならすぐ効くので速い反面、間違えると自分の接続まで切れますし、コードと実物がずれ、レビューも残りません。検証環境や調査までにとどめます。本番では、チャットで IaC のルールを書き換えさせて plan まで出させ、人が差分を読み、PR、CI、人の承認を経て CI/CD から反映します。Kiro には本番の書き込み権限を渡しません。オンプレの FortiGate や Palo Alto も、Terraform のプロバイダがあれば同じ流れにできます。このラボの Claude も同じで、模擬装置はチャットから直接変えましたが、自宅の実機はユーザーが手で設定しました。');
+
+// 人が介在する手順書は IaC の前と後?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('人が入る手順は、IaC の作業の前と後?', { placeholder: 'title' });
+txt(s, 'ほぼ合っている。ただし「途中」もある: 差分を読んで承認するところは、IaC の真ん中に人が入る。もう一つ、IaC の外の作業も人の手順', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+const phase3 = [
+  ['作業前', C.accent2, ['変更の申請と承認・作業時間・関係者への連絡', '今のルールを記録(describe・書き出し)', '切り戻す条件を決める(何が起きたら戻すか)']],
+  ['途中(承認)', C.accent3, ['plan・変更セットの差分を読む(削除・0.0.0.0/0・作り直し)', 'PR とデプロイの承認', '反映そのものは CI/CD。人も Kiro も手で apply しない']],
+  ['作業後', C.accent5, ['通すべき通信が通る・止めるべき通信が止まる', 'ログで確かめる(VPC フローログ・Firewall のログ)', '監視・ずれの確認、完了の連絡。だめなら切り戻し']],
+];
+phase3.forEach(([h, col, items], i) => {
+  const x = 0.5 + i * 3.05;
+  card(s, x, 1.6, 2.9, 2.75, 'phase3 card ' + (i + 1));
+  hex(s, x + 0.15, 1.72, 0.42, col, String(i + 1), 'phase3 hex ' + (i + 1));
+  txt(s, h, { x: x + 0.68, y: 1.75, w: 2.1, h: 0.35, fontSize: 13, bold: true, color: col, valign: 'middle' });
+  txt(s, items.map((t, j) => ({ text: t, options: { bullet: true, breakLine: j < items.length - 1 } })), { x: x + 0.15, y: 2.25, w: 2.65, h: 2.05, fontSize: 10, paraSpaceAfter: 5 });
+});
+card(s, 0.5, 4.45, 9.0, 0.5, 'outside iac card');
+txt(s, [
+  { text: 'IaC の外: ', options: { bold: true, color: C.accent4 } },
+  { text: '相手側の firewall・DX の事業者・他チームの設定、利用者での確認も、人の作業として書く' },
+], { x: 0.7, y: 4.52, w: 8.6, h: 0.4, fontSize: 10.5, valign: 'middle' });
+txt(s, 'Kiro が書くのは手順書の下書きと確認のコマンド。決めて・承認して・確かめるのが人', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('人が入る手順書は、IaC の作業の前と後か、という質問です。ほぼ合っていますが、もう一か所あります。IaC の途中、plan や変更セットの差分を読んで承認するところです。作業前は、変更の申請と承認、作業時間と関係者への連絡、今のルールの記録、切り戻す条件の決定です。途中は、差分の中に削除や 0.0.0.0/0 の許可、作り直しが無いかを読み、PR とデプロイを承認します。反映そのものは CI/CD が行い、人も Kiro も手で apply しません。作業後は、通すべき通信が通り、止めるべき通信が止まることを確かめ、VPC フローログや Firewall のログでも確認し、監視とずれの確認、完了の連絡をします。だめなら切り戻します。さらに、相手側の firewall や Direct Connect の事業者、他チームの設定、実際の利用者での確認のように IaC の外にある作業も、人の作業として手順書に書きます。');
+
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'ほかの AWS の AI ツール' });

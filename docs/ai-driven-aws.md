@@ -183,6 +183,32 @@ Word は pandoc など、Excel は小さな変換スクリプトで。気をつ�
 出典(追加分): [Kiro Docs: Autopilot と Supervised](https://kiro.dev/docs/ide/chat/autopilot/)、[Kiro Docs: First project](https://kiro.dev/docs/getting-started/first-project/index)、
 [Kiro IDE preview の changelog](https://kiro.dev/changelog/ide/0-1/)。
 
+## Claude のようにチャットで firewall も変えられるか
+
+できる。ただし装置にログインするのではなく、手元の PC の AWS 資格情報で、aws-cli や AWS の MCP サーバーを通して API を呼ぶ形
+(セキュリティグループ・ネットワーク ACL・Network Firewall・WAF など)。効くのは Kiro に渡した権限の範囲だけ。
+
+| やり方 | 中身 | 使ってよい場面 |
+|---|---|---|
+| A. チャットから直接変える | Kiro が API を呼んで変える。セキュリティグループはすぐ効き、間違えると自分の接続も切れる。コードと実物がずれ、レビューも残らない | 検証環境・調査まで |
+| B. チャットで IaC を直させる | 「443 を社内だけに」と頼むと IaC のルールを書き換えて plan まで出す → 人が差分を読む → PR → CI → 人の承認 → CI/CD が反映 | 本番(Kiro に本番の書き込み権限は渡さない) |
+
+オンプレの FortiGate・Palo Alto なども、Terraform のプロバイダがあれば B と同じ流れにできる。
+このラボの Claude も同じで、模擬装置はチャットから直接変えたが、自宅の実機(WS-C3650)はユーザーが手で設定した。
+
+## 人が入る手順は、IaC の作業の前と後か
+
+ほぼ合っている。ただし **IaC の途中(差分を読んで承認するところ)にも人が入る**。また IaC の外の作業も人の手順として書く。
+
+| 段階 | 人がすること |
+|---|---|
+| 作業前 | 変更の申請と承認・作業時間・関係者への連絡 / 今のルールを記録(describe・書き出し)/ 切り戻す条件を決める |
+| 途中(承認) | plan・変更セットの差分を読む(削除・0.0.0.0/0 の許可・作り直しが無いか)/ PR とデプロイの承認。反映そのものは CI/CD で、人も Kiro も手で apply しない |
+| 作業後 | 通すべき通信が通り、止めるべき通信が止まるか / ログ(VPC フローログ・Firewall のログ)で確かめる / 監視・ずれの確認、完了の連絡。だめなら切り戻し |
+| IaC の外 | 相手側の firewall・Direct Connect の事業者・他チームの設定、実際の利用者での確認 |
+
+Kiro が書くのは手順書の下書きと確認のコマンドまで。決めて・承認して・確かめるのは人。
+
 ## Kiro 以外の AWS の AI 開発ツールとの違い
 
 | ツール | 何のための道具か | Kiro との違い |
