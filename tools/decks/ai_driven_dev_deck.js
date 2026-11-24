@@ -66,6 +66,27 @@ hex(s, 7.95, 1.25, 0.5, C.accent3, '警', 'motif hex alert', C.background1);
 txt(s, '2026-11-20', { x: 0.6, y: 4.7, w: 4, h: 0.3, fontSize: 12, color: C.accent6 });
 s.addNotes('このデッキは、ニルヴァーナ ラボの開発で Claude が裏側で何をしているかをまとめたものです。依頼は一言、そこから調査・実装・テスト・本物のツールでの確認・GitHub の CI・main への取り込みまでを Claude が進めます。');
 
+// AI ドリブン開発とは(一般的な定義)
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'はじめに' });
+s.addText('AI ドリブン開発とは(一般的な定義)', { placeholder: 'title' });
+txt(s, '決まった 1 つの定義はない。一般には「AI が開発の工程をまたいで計画・コード・テストを作って進め、人は目的を決め、確かめて、承認する」開発のやり方', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+const DH = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 11 };
+const dn = (t) => ({ text: t, options: { bold: true, color: C.background1 } });
+s.addTable([
+  [{ text: '', options: DH }, { text: '従来の開発', options: DH }, { text: 'AI 支援(AI-assisted)', options: DH }, { text: 'AI ドリブン(AI-driven)', options: DH }],
+  [dn('AI の役割'), { text: '使わない・ごく一部' }, { text: '補完・チャットで、人の作業を部分的に手伝う' }, { text: '工程をまたいで計画・コード・テスト・設定を作り、進める' }],
+  [dn('人の役割'), { text: '全部を自分で' }, { text: '書くのは人。AI の提案を選ぶ' }, { text: '目的を決め、AI の成果を確かめて承認する' }],
+  [dn('道具の例'), { text: 'エディタ・手作業' }, { text: 'コード補完、IDE のチャット' }, { text: 'Claude Code・Kiro などのエージェント' }],
+], { x: 0.5, y: 1.55, w: 9.0, colW: [1.5, 2.1, 2.6, 2.8], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.5, valign: 'middle', objectName: 'ai driven definition table' });
+card(s, 0.5, 3.75, 4.4, 1.15, 'ai-dlc card');
+txt(s, '言葉の出どころの例', { x: 0.65, y: 3.82, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent5 });
+txt(s, 'AWS は 2025 年に「AI-Driven Development Lifecycle(AI-DLC)」という方法論を発表。AI が計画を出し、人が確かめて承認しながら工程を進める', { x: 0.65, y: 4.12, w: 4.1, h: 0.75, fontSize: 9.5 });
+card(s, 5.1, 3.75, 4.4, 1.15, 'vibe card');
+txt(s, '「バイブコーディング」との違い', { x: 5.25, y: 3.82, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent3 });
+txt(s, 'バイブコーディングは、出てきたコードを細かく見ずに任せる作り方。AI ドリブンは、人の確認と承認を工程に組み込む', { x: 5.25, y: 4.12, w: 4.1, h: 0.75, fontSize: 9.5 });
+txt(s, 'この資料の AI ドリブン: 依頼は一言、Claude が調査から main への取り込みまで進め、確かめはテストと本物のツールで', { x: 0.5, y: 4.97, w: 9, h: 0.28, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('AI ドリブン開発には、決まった 1 つの定義はありません。一般には、AI が開発の工程をまたいで計画やコード、テストを作って進め、人は目的を決め、AI の成果を確かめて承認する開発のやり方を指します。よく比べられるのが AI 支援、AI-assisted の開発で、こちらは補完やチャットで人の作業を部分的に手伝う形です。書くのは人で、AI の提案を選びます。言葉の出どころの例として、AWS は 2025 年に AI-Driven Development Lifecycle、AI-DLC という方法論を発表しました。AI が計画を出し、人が確かめて承認しながら工程を進める考え方です。似た言葉のバイブコーディングは、出てきたコードを細かく見ずに任せる作り方で、人の確認と承認を工程に組み込む AI ドリブンとは違います。この資料でいう AI ドリブンは、依頼は一言、Claude が調査から main への取り込みまで進め、確かめはテストと本物のツールで行う、というやり方です。出典: AWS DevOps Blog「AI-Driven Development Life Cycle」、IBM「The AI-DLC」。');
+
 // 2. 要旨
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'はじめに' });
 s.addText('一言の依頼が、確かめられた変更として main に入る', { placeholder: 'title' });
