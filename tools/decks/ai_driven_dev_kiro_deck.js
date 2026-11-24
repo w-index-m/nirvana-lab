@@ -308,6 +308,50 @@ txt(s, [
 ], { x: 0.7, y: 4.03, w: 8.6, h: 0.82, fontSize: 10.5 });
 s.addNotes('前のスライドの「値は現物から起こす」を、このラボで実際にやりました。aws-cli の構文で ALB を組み、Web 用と API 用の 2 つのターゲットグループと、/api/ を API 側へ送るルールを作りました。本物の HTTP で、/index.html は web1 と web2 に交互に、/api/ は api1 に振り分けられることを確かめてから、describe の出力を読んで基本設計書とパラメータシートを自動で作りました。値はすべて describe から転記するので、設計書と実物が食い違いません。基本設計書のうち、構成図や方針は値から組み立て、目的や非機能要件は人が書く欄として残しています。同じ道具は本物の AWS にも向けられるように作りましたが、そちらはまだ試していません。');
 
+// サンプル: AWS ネットワーク設計書
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '要件定義書と設計書' });
+s.addText('サンプル: AWS ネットワークの基本設計書', { placeholder: 'title' });
+txt(s, '6 サービスの見本。このラボで Claude が作ったもので、Kiro の出力とは形が違うことがある', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 10.5, color: C.accent1 });
+s.addImage({ path: 'docs/design-samples/aws-network/diagram.png', x: 0.5, y: 1.38, w: 9.0, h: 3.19, altText: 'AWS ネットワーク構成図。IGW と VGW から AZ ごとの Firewall を通って public・app へ。DX は主系・副系、WAF は ALB に関連付け', objectName: 'aws network diagram' });
+const nwParts = [
+  ['基本設計書', '目的・前提・構成図・通信の流れ・6 サービスの設計・可用性・監視・試験 13 項目・未決事項'],
+  ['パラメータシート', 'Excel 11 シート(VPC・サブネット・ルート・SG・DX・ALB・NAT・WAF・NFW・試験)'],
+];
+nwParts.forEach(([h, b], i) => {
+  const x = 0.5 + i * 4.55;
+  card(s, x, 4.62, 4.45, 0.55, 'nw part card ' + (i + 1));
+  txt(s, [{ text: h + ': ', options: { bold: true, color: C.accent5 } }, { text: b }], { x: x + 0.12, y: 4.66, w: 4.2, h: 0.48, fontSize: 9, valign: 'middle' });
+});
+s.addNotes('AWS ネットワークの基本設計書とパラメータシートの見本です。VPC、Direct Connect、ALB、NAT ゲートウェイ、WAF、Network Firewall を扱っています。これはこのラボで Claude が作ったもので、Kiro が実際に出す設計書とは形や項目が違うことがあります。会社名や IP アドレスはすべて架空です。構成は、東京リージョンの 2 つの AZ に public、firewall、app、db のサブネットを置き、インターネットとオンプレの出入りを両方とも Network Firewall で検査します。Direct Connect は 2 つのロケーションに 1 本ずつ、WAF は ALB に関連付けます。基本設計書には目的から試験、未決事項まで、パラメータシートは Excel の 11 シートです。');
+
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '要件定義書と設計書' });
+s.addText('設計書の矛盾は、計算で確かめる', { placeholder: 'title' });
+txt(s, '値を 1 か所に置いて設計書とパラメータシートを作り、ルートの行きと帰りなど 12 項目を機械的に確かめた', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11, color: C.accent1 });
+card(s, 0.5, 1.4, 4.2, 3.5, 'nw check card');
+txt(s, '確かめること(12 項目)', { x: 0.65, y: 1.48, w: 3.9, h: 0.3, fontSize: 12, bold: true, color: C.accent5 });
+const nwChecks = [
+  'サブネットが VPC の中・重ならない・オンプレと重ならない',
+  'ルートの行き先が定義済み、同じ AZ の Firewall・NAT を使う',
+  '外へ出る通信は必ず Firewall を通る',
+  '行きと帰りが同じ Firewall を通る(ずれると通信が切れる)',
+  'SG の参照先、WAF の WCU、DX の 2 ロケーションとコミュニティ',
+];
+txt(s, nwChecks.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < nwChecks.length - 1 } })), { x: 0.65, y: 1.85, w: 3.95, h: 3.0, fontSize: 10, paraSpaceAfter: 6 });
+card(s, 4.9, 1.4, 4.6, 3.5, 'nw found card');
+txt(s, '見つかった抜け(最初の版)', { x: 5.05, y: 1.48, w: 4.3, h: 0.3, fontSize: 12, bold: true, color: C.accent3 });
+s.addTable([
+  [{ text: '通信', options: KH }, { text: '行き', options: KH }, { text: '戻り', options: KH }],
+  [{ text: 'public → オンプレ' }, { text: 'Firewall 1a → VGW' }, { text: 'VGW → 直接(Firewall を飛ばす)', options: { color: C.accent3, bold: true } }],
+], { x: 5.05, y: 1.88, w: 4.3, colW: [1.25, 1.35, 1.7], fontSize: 9, color: C.background2, fill: { color: C.text1 }, border: { type: 'solid', pt: 1, color: C.text2 }, rowH: 0.42, valign: 'middle', objectName: 'nw found table' });
+const nwFix = [
+  '原因: VGW 側のルートテーブルに public サブネットの行が無かった',
+  '直し方: 行を足して、戻りも同じ AZ の Firewall へ',
+  'もう 1 つ: パラメータシートに Firewall のポリシー設定が無い(テストで発見)',
+];
+txt(s, nwFix.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < nwFix.length - 1 } })), { x: 5.05, y: 3.0, w: 4.35, h: 1.85, fontSize: 10, paraSpaceAfter: 6 });
+txt(s, 'Kiro で作った設計書にも同じ考え方が使える: 値を 1 か所に、矛盾は人の目でなく計算で。値は架空、本物の AWS には未投入', { x: 0.5, y: 4.97, w: 9, h: 0.28, fontSize: 9.5, color: C.accent6 });
+s.addNotes('この見本では、値を 1 か所に置いて、そこから設計書とパラメータシートの両方を作り、矛盾を計算で確かめました。確かめるのは 12 項目で、サブネットの重なり、同じ AZ の Firewall と NAT を使うか、外へ出る通信は必ず Firewall を通るか、そして行きと帰りが同じ Firewall を通るか、などです。最初の版で実際に抜けが見つかりました。public サブネットからオンプレへの通信は、行きは Firewall を通るのに、戻りは VGW 側のルートテーブルに public の行が無かったため、Firewall を飛ばして直接戻っていました。行きと帰りがずれるとステートフルの検査で通信が切れます。行を足して直しました。もう 1 つ、パラメータシートに Firewall のポリシーの設定が無いことをテストで見つけました。Kiro で作った設計書でも同じ考え方が使えます。値は 1 か所に置き、矛盾は人の目ではなく計算で確かめます。値は架空で、本物の AWS には入れていません。');
+
 // 操作手順
 pres.addSection({ title: '使い方と運用' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
@@ -376,6 +420,237 @@ txt(s, [
 ], { x: 0.7, y: 4.18, w: 8.6, h: 0.65, fontSize: 10.5 });
 txt(s, '手順書の正しさは、検証環境で実際に通して初めてわかる', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
 s.addNotes('作業手順書や運用手順書も、下書きなら Kiro で作れます。IaC のコードと tasks.md、describe の結果から、コマンドと確認方法の入った手順書を起こせます。事前確認、作業手順、確認方法、切り戻し、日々の運用の章ごとに、Kiro に書かせる中身と、人が確かめることを分けました。特に切り戻しは、作り直しが起きた変更だと戻せないことがあるので、人が確かめます。会社の手順書のひな形を Steering に入れ、値は現物から起こし、検証環境で手順書どおりに一度通してから本番に使ってください。Direct Connect の物理作業は、事業者の手順と合わせる必要があります。');
+
+// チャットで firewall を変えられる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Claude のようにチャットで firewall も変えられる?', { placeholder: 'title' });
+txt(s, 'できる。ただし「装置にログインする」のではなく、手元の AWS の権限で API を呼ぶ形。本番は直接変えず、チャット → IaC の差分 → 承認 → CI/CD が正しい', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.6, 4.35, 3.3, 'fw direct card');
+card(s, 5.15, 1.6, 4.35, 3.3, 'fw iac card');
+txt(s, 'A. チャットから直接変える', { x: 0.75, y: 1.72, w: 3.9, h: 0.32, fontSize: 13, bold: true, color: C.accent3 });
+const fwDirect = [
+  'Kiro が aws-cli か AWS の MCP サーバーで API を呼ぶ(セキュリティグループ・NACL・Network Firewall・WAF)',
+  '効くのは Kiro に渡した権限の範囲だけ。動くのは手元の PC の資格情報',
+  'セキュリティグループの変更はすぐ効く。間違えると自分の接続も切れる',
+  'コードと実物がずれ、レビューも残らない → 検証環境・調査まで',
+];
+txt(s, fwDirect.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwDirect.length - 1 } })), { x: 0.75, y: 2.1, w: 3.95, h: 2.7, fontSize: 10.5, paraSpaceAfter: 6 });
+txt(s, 'B. チャットで IaC を直させる(本番)', { x: 5.4, y: 1.72, w: 3.95, h: 0.32, fontSize: 13, bold: true, color: C.accent5 });
+const fwIac = [
+  '「443 を社内だけに」と頼むと、Kiro が IaC のルールを書き換えて plan まで出す',
+  '人が差分を読む(削除・0.0.0.0/0・作り直しが無いか)',
+  'PR → CI → 人の承認 → CI/CD が反映。Kiro に本番の書き込み権限は渡さない',
+  'オンプレの FortiGate・Palo Alto も、Terraform のプロバイダがあれば同じ流れ',
+];
+txt(s, fwIac.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwIac.length - 1 } })), { x: 5.4, y: 2.1, w: 3.95, h: 2.7, fontSize: 10.5, paraSpaceAfter: 6 });
+txt(s, 'このラボの Claude も同じ: 模擬装置はチャットから直接変えたが、自宅の実機(WS-C3650)はユーザーが手で入れた', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 10.5, italic: true, color: C.accent2 });
+s.addNotes('Claude とのチャットのように、Kiro からも firewall などを変えられるか、という質問への答えは「できる」です。ただし装置にログインして設定するのではなく、手元の PC にある AWS の資格情報で、aws-cli や AWS の MCP サーバーを通して API を呼ぶ形になります。セキュリティグループ、ネットワーク ACL、Network Firewall、WAF などが対象で、効くのは Kiro に渡した権限の範囲だけです。チャットから直接変えるやり方は、セキュリティグループならすぐ効くので速い反面、間違えると自分の接続まで切れますし、コードと実物がずれ、レビューも残りません。検証環境や調査までにとどめます。本番では、チャットで IaC のルールを書き換えさせて plan まで出させ、人が差分を読み、PR、CI、人の承認を経て CI/CD から反映します。Kiro には本番の書き込み権限を渡しません。オンプレの FortiGate や Palo Alto も、Terraform のプロバイダがあれば同じ流れにできます。このラボの Claude も同じで、模擬装置はチャットから直接変えましたが、自宅の実機はユーザーが手で設定しました。');
+
+// 人が介在する手順書は IaC の前と後?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('人が入る手順は、IaC の作業の前と後?', { placeholder: 'title' });
+txt(s, 'ほぼ合っている。ただし「途中」もある: 差分を読んで承認するところは、IaC の真ん中に人が入る。もう一つ、IaC の外の作業も人の手順', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+const phase3 = [
+  ['作業前', C.accent2, ['変更の申請と承認・作業時間・関係者への連絡', '今のルールを記録(describe・書き出し)', '切り戻す条件を決める(何が起きたら戻すか)']],
+  ['途中(承認)', C.accent3, ['plan・変更セットの差分を読む(削除・0.0.0.0/0・作り直し)', 'PR とデプロイの承認', '反映そのものは CI/CD。人も Kiro も手で apply しない']],
+  ['作業後', C.accent5, ['通すべき通信が通る・止めるべき通信が止まる', 'ログで確かめる(VPC フローログ・Firewall のログ)', '監視・ずれの確認、完了の連絡。だめなら切り戻し']],
+];
+phase3.forEach(([h, col, items], i) => {
+  const x = 0.5 + i * 3.05;
+  card(s, x, 1.6, 2.9, 2.75, 'phase3 card ' + (i + 1));
+  hex(s, x + 0.15, 1.72, 0.42, col, String(i + 1), 'phase3 hex ' + (i + 1));
+  txt(s, h, { x: x + 0.68, y: 1.75, w: 2.1, h: 0.35, fontSize: 13, bold: true, color: col, valign: 'middle' });
+  txt(s, items.map((t, j) => ({ text: t, options: { bullet: true, breakLine: j < items.length - 1 } })), { x: x + 0.15, y: 2.25, w: 2.65, h: 2.05, fontSize: 10, paraSpaceAfter: 5 });
+});
+card(s, 0.5, 4.45, 9.0, 0.5, 'outside iac card');
+txt(s, [
+  { text: 'IaC の外: ', options: { bold: true, color: C.accent4 } },
+  { text: '相手側の firewall・DX の事業者・他チームの設定、利用者での確認も、人の作業として書く' },
+], { x: 0.7, y: 4.52, w: 8.6, h: 0.4, fontSize: 10.5, valign: 'middle' });
+txt(s, 'Kiro が書くのは手順書の下書きと確認のコマンド。決めて・承認して・確かめるのが人', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('人が入る手順書は、IaC の作業の前と後か、という質問です。ほぼ合っていますが、もう一か所あります。IaC の途中、plan や変更セットの差分を読んで承認するところです。作業前は、変更の申請と承認、作業時間と関係者への連絡、今のルールの記録、切り戻す条件の決定です。途中は、差分の中に削除や 0.0.0.0/0 の許可、作り直しが無いかを読み、PR とデプロイを承認します。反映そのものは CI/CD が行い、人も Kiro も手で apply しません。作業後は、通すべき通信が通り、止めるべき通信が止まることを確かめ、VPC フローログや Firewall のログでも確認し、監視とずれの確認、完了の連絡をします。だめなら切り戻します。さらに、相手側の firewall や Direct Connect の事業者、他チームの設定、実際の利用者での確認のように IaC の外にある作業も、人の作業として手順書に書きます。');
+
+// Kiro への依頼のしかた
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('設定を反映するとき、Kiro にどう頼む?', { placeholder: 'title' });
+txt(s, '「反映して」とは頼まない。頼むのは「IaC を直して plan まで、PR にして」まで。反映は CI/CD', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.38, 3.0, 3.55, 'steering card');
+txt(s, '0. 先に決まりを書く', { x: 0.65, y: 1.46, w: 2.75, h: 0.3, fontSize: 12, bold: true, color: C.accent4 });
+txt(s, '.kiro/steering/aws-change.md(一度だけ)', { x: 0.65, y: 1.76, w: 2.75, h: 0.25, fontSize: 9, color: C.accent6 });
+const steerRules = [
+  'apply と aws の書き込み系コマンドは実行しない',
+  '変えるのは terraform/ の下だけ',
+  'plan に削除・作り直し・0.0.0.0/0 があれば止めて報告',
+  'PR 本文に plan の要約・影響範囲・切り戻し・確認コマンド',
+];
+txt(s, steerRules.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < steerRules.length - 1 } })), { x: 0.65, y: 2.08, w: 2.75, h: 2.3, fontSize: 9.5, paraSpaceAfter: 5 });
+txt(s, 'これで毎回の依頼が短くなる', { x: 0.65, y: 4.5, w: 2.75, h: 0.3, fontSize: 9.5, italic: true, color: C.accent5 });
+const asks = [
+  ['Spec を作らせる', '本番の ALB 用 SG で、443 の受け付けを 0.0.0.0/0 から社内の 203.0.113.0/24 だけに絞りたい。対象は terraform/prod/network/sg_alb.tf。Spec を作って', '要件・設計・作業項目を 1 段ずつ人が承認'],
+  ['plan まで', 'タスクを実行して。fmt・validate・plan まで。apply はしないで。削除・作り直し・0.0.0.0/0 があれば先に教えて', '人が plan の差分を読む(途中の承認)'],
+  ['PR にさせる', 'feature/sg-alb-restrict でコミットして PR を作って。本文に plan の要約・影響範囲・切り戻し・確認コマンドを', 'CI → 人の承認 → CI/CD が反映'],
+  ['反映後に確かめる', '反映が終わった。describe-security-groups で 443 のルールを確認して表で。パラメータシートも更新して', '期待どおりかを人が見る'],
+];
+asks.forEach(([h, q, who], i) => {
+  const y = 1.38 + i * 0.9;
+  hex(s, 3.7, y + 0.05, 0.4, C.accent1, String(i + 1), 'ask hex ' + (i + 1));
+  txt(s, h, { x: 4.2, y: y, w: 1.9, h: 0.28, fontSize: 11.5, bold: true, color: C.background1 });
+  txt(s, '→ ' + who, { x: 6.1, y: y + 0.02, w: 3.4, h: 0.26, fontSize: 9, color: C.accent2 });
+  txt(s, '「' + q + '」', { x: 4.2, y: y + 0.3, w: 5.3, h: 0.55, fontSize: 9.5, color: C.background2 });
+});
+txt(s, 'こつ: 環境・ファイル・やりたいことを具体的に / やってほしくないことを書く / 確かめ方も頼む。「本番の SG 直しておいて」は NG', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 9.5, color: C.accent6 });
+s.addNotes('Kiro で設定を反映するときの頼み方です。ポイントは「反映して」とは頼まないことです。頼むのは、IaC を直して plan まで出し、PR にするところまでで、本番への反映は CI/CD が行います。まず一度だけ、Steering に決まりを書いておきます。apply や AWS の書き込み系のコマンドは実行しない、変えるのは terraform の下だけ、plan に削除や作り直し、0.0.0.0/0 の許可があれば止めて報告する、PR の本文には plan の要約と影響範囲、切り戻しと確認のコマンドを書く、といった内容です。これで毎回の依頼が短くなります。依頼は 4 回に分けます。1 回目は、環境とファイルとやりたいことを書いて Spec を作らせ、要件、設計、作業項目を 1 段ずつ承認します。2 回目は plan まで実行させ、人が差分を読みます。3 回目は PR を作らせ、CI と人の承認を経て CI/CD が反映します。4 回目は反映後に describe で確かめさせ、パラメータシートも更新させます。「本番の SG 直しておいて」のようなあいまいな頼み方は、権限があれば Kiro が API で直接変えてしまうおそれがあるので避けます。1 行の小さな変更なら、Spec を作らずチャットで頼んでも十分です。');
+
+// 設定を入れるのは誰?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Kiro が IaC を作り、人が aws-cli で入れる?', { placeholder: 'title' });
+txt(s, '少し違う。IaC なら設定を入れるのは IaC の道具(terraform apply・変更セット・cdk deploy)。aws-cli は作業前後の確認(describe)に使う', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: 'やり方', options: KH }, { text: '設定を入れるもの', options: KH }, { text: '人の役割', options: KH }, { text: '気をつけること', options: KH }],
+  [kn('IaC + CI/CD(おすすめ)'), { text: 'パイプラインが terraform apply など' }, { text: '差分を読んで承認' }, { text: '承認した差分だけが入る。記録が Git に残る' }],
+  [kn('IaC + 手で入れる'), { text: '人が terraform apply tfplan など' }, { text: '承認したうえで自分で入れる' }, { text: 'plan -out で保存した差分をそのまま入れる。CloudFormation は変更セットを確かめて実行' }],
+  [kn('手順書(IaC なし)'), { text: '人が aws-cli を貼り付け' }, { text: '手順書を確認して入れる' }, { text: 'コードが無いので実物とそろわない。切り戻しは別に書く。記録は CloudTrail だけ' }],
+], { x: 0.5, y: 1.6, w: 9.0, colW: [2.1, 2.2, 1.9, 2.8], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.62, valign: 'middle', objectName: 'apply who table' });
+card(s, 0.5, 4.2, 9.0, 0.7, 'apply who note card');
+txt(s, [
+  { text: 'CI/CD が無いとき: ', options: { bold: true, color: C.accent5 } },
+  { text: 'terraform plan -out=tfplan → 人が差分を読む → terraform apply tfplan。Kiro に頼めば手順書(3 つ目)も書けるが、それは IaC ではない' },
+], { x: 0.7, y: 4.27, w: 8.6, h: 0.58, fontSize: 10.5, valign: 'middle' });
+txt(s, 'どのやり方でも、aws-cli は「確かめる」ために使うのが基本', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
+s.addNotes('Kiro が IaC を作り、人が aws-cli で設定を入れる、という理解は少し違います。IaC にした場合、設定を入れるのは IaC の道具です。Terraform なら terraform apply、CloudFormation なら変更セットの実行、CDK なら cdk deploy で、本番ではこれを CI/CD が流します。aws-cli は、作業前と作業後に describe などで確かめるために使います。CI/CD が無い会社では人が手で入れますが、その場合も打つのは aws-cli ではなく、terraform plan -out で保存した差分を terraform apply tfplan でそのまま入れる形です。Kiro に aws-cli の手順書を書かせて人が貼り付けるやり方もできますが、それは IaC ではなく昔ながらの手順書の作業で、コードが無いので実物とそろわず、切り戻しも別に書く必要があり、記録は CloudTrail だけになります。');
+
+// 設定の正しさは別の AI に確かめさせる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('設定の正しさは、別の AI に確かめさせればよい?', { placeholder: 'title' });
+txt(s, '良い方法。ただし人の承認の代わりではなく、確認を一段増やすもの。機械の検査・別の AI・人・実際の通信を重ねる', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+const layers = [
+  ['機械的な検査', 'terraform validate・tflint・checkov・cfn-lint・cfn-guard', '必ず守る規則(22 番を 0.0.0.0/0 に開けない など)。何度やっても同じ結果', C.accent4],
+  ['別の AI', '要件定義書と plan の差分を突き合わせる', '要件とのずれ・書き間違い・影響範囲の見落とし', C.accent1],
+  ['人', '差分を読んで承認', '社内の事情に合っているか。責任は人が持つ', C.accent2],
+  ['実際の通信', 'VPC Reachability Analyzer・Network Access Analyzer・実際の接続', '本当に通るか、本当に止まるか', C.accent5],
+];
+layers.forEach(([h, how, what, col], i) => {
+  const y = 1.4 + i * 0.6;
+  hex(s, 0.5, y, 0.44, col, String(i + 1), 'layer hex ' + (i + 1));
+  txt(s, h, { x: 1.05, y: y + 0.02, w: 1.5, h: 0.36, fontSize: 12, bold: true, color: col, valign: 'middle' });
+  txt(s, how, { x: 2.55, y: y - 0.02, w: 3.3, h: 0.48, fontSize: 9.5, color: C.background1, valign: 'middle' });
+  txt(s, what, { x: 5.95, y: y - 0.02, w: 3.55, h: 0.48, fontSize: 9.5, valign: 'middle' });
+});
+card(s, 0.5, 3.85, 4.4, 1.08, 'ai ask card');
+txt(s, '別の AI への頼み方', { x: 0.65, y: 3.92, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent1 });
+txt(s, '×「これで大丈夫?」\n○「この要件とこの plan の差分を比べて、合わない点を全部挙げて」', { x: 0.65, y: 4.22, w: 4.1, h: 0.66, fontSize: 9.5 });
+card(s, 5.1, 3.85, 4.4, 1.08, 'ai limit card');
+txt(s, 'AI だけでは足りない', { x: 5.25, y: 3.92, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent3 });
+txt(s, '社内の事情(どの IP が本社か)は知らない / 間違っていても「問題なし」と答える / 書いた設定が正しくても、通るかは別', { x: 5.25, y: 4.22, w: 4.1, h: 0.66, fontSize: 9.5 });
+txt(s, 'このラボでも、コードを読むだけでは見つからず、動かして初めて見つかったバグが多かった', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('設定の正しさを別の AI に確かめさせるのは良い方法です。ただし人の承認の代わりではなく、確認を一段増やすものとして使います。おすすめは 4 段に重ねることです。1 段目は terraform validate や checkov などの機械的な検査で、22 番を 0.0.0.0/0 に開けない、のような必ず守る規則を見ます。何度やっても同じ結果になるのが強みです。2 段目が別の AI で、要件定義書と plan の差分を突き合わせ、要件とのずれや書き間違いを探させます。頼み方は「これで大丈夫?」ではなく、「合わない点を全部挙げて」とします。3 段目は人で、社内の事情に合っているかを見て承認し、責任を持ちます。4 段目は反映後の実際の通信で、VPC Reachability Analyzer や Network Access Analyzer、実際の接続で、本当に通るか、本当に止まるかを確かめます。AI は社内の事情を知らず、間違っていても問題なしと答えることがあり、書いた設定が正しくても通るかは別の話です。このラボでも、動かして初めて見つかったバグがたくさんありました。');
+
+// Kiro から AWS の状態を見る
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Kiro から AWS の状態を直接見られる?', { placeholder: 'title' });
+txt(s, '見られる。Kiro のターミナルの aws-cli か AWS の MCP サーバーで読む。渡すのは読み取りの権限だけ', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '見るもの', options: KH }, { text: '例', options: KH }],
+  [kn('設定'), { text: 'describe-security-groups・describe-route-tables・describe-load-balancers・describe-target-health' }],
+  [kn('状態・数値'), { text: 'CloudWatch のメトリクスとアラーム、Direct Connect の接続と BGP(describe-virtual-interfaces)' }],
+  [kn('変更の記録'), { text: 'CloudTrail(誰がいつ何を変えたか)、AWS Config(設定の移り変わり)' }],
+  [kn('IaC とのずれ'), { text: 'terraform plan -refresh-only、CloudFormation のドリフト検出' }],
+], { x: 0.5, y: 1.4, w: 9.0, colW: [1.8, 7.2], fontSize: 10, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.36, valign: 'middle', objectName: 'status check table' });
+card(s, 0.5, 3.35, 4.4, 1.58, 'status ask card');
+txt(s, '頼み方の例', { x: 0.65, y: 3.43, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent1 });
+txt(s, '「本番の ALB のターゲットの状態と、ALB 用 SG の 443 番のルールを読み取りだけで確認して、表にして。設定は変えないで」', { x: 0.65, y: 3.75, w: 4.1, h: 1.1, fontSize: 10 });
+card(s, 5.1, 3.35, 4.4, 1.58, 'status rule card');
+txt(s, '使うときの決まり', { x: 5.25, y: 3.43, w: 4.1, h: 0.28, fontSize: 11, bold: true, color: C.accent3 });
+const stRules = [
+  'ViewOnlyAccess・SecurityAudit など設定だけ見る権限を、SSO の一時的な資格情報で(ReadOnlyAccess は S3 の中身なども読める)',
+  '読んだ結果(IP・構成)は AI に送られる。秘密は読ませない',
+  '本当に防ぐのは権限。Steering の決まりだけに頼らない',
+];
+txt(s, stRules.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < stRules.length - 1 } })), { x: 5.25, y: 3.73, w: 4.15, h: 1.15, fontSize: 9, paraSpaceAfter: 3 });
+txt(s, 'このラボでも Claude は /api/cli で装置の状態を直接読んで確かめた。設計書の道具も describe しか呼ばない', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('Kiro から AWS の状態を直接見ることはできます。Kiro は手元の PC で動くので、Kiro のターミナルから aws-cli を打つか、AWS の MCP サーバーを通して、実際の AWS を読めます。見られるのは、セキュリティグループやルートテーブル、ロードバランサー、ターゲットの状態などの設定、CloudWatch のメトリクスとアラーム、Direct Connect の接続と BGP の状態、CloudTrail と AWS Config の変更の記録、それに terraform plan の refresh-only やドリフト検出による IaC と実物のずれです。頼むときは「読み取りだけで確認して、設定は変えないで」と書きます。決まりとして、渡すのは ViewOnlyAccess や SecurityAudit のような設定だけを見る権限にし、SSO の一時的な資格情報で渡します。ReadOnlyAccess は S3 の中身など一部のデータそのものも読めてしまいます。読んだ結果は AI に送られるので、秘密は読ませません。書き込みを本当に防ぐのは権限で、Steering の決まりだけに頼りません。このラボでも Claude は装置の状態を直接読んで確かめていて、設計書の道具も describe しか呼びません。Kiro そのものでは試していません。');
+
+// 会社の firewall の設定から AWS Network Firewall を作る
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('今の firewall から Network Firewall を作れる?', { placeholder: 'title' });
+txt(s, '下書きなら作れる。大事なのは「元のルール 1 本ずつがどこへ移ったか」の対応表も作らせ、人が突き合わせること', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+card(s, 0.5, 1.4, 2.9, 3.5, 'fwmig make card');
+txt(s, 'Kiro に作らせるもの', { x: 0.65, y: 1.48, w: 2.6, h: 0.3, fontSize: 12, bold: true, color: C.accent5 });
+const fwMake = [
+  'Network Firewall の IaC(ポリシー・ステートフルのルールグループ・IP セット / ポートセット)',
+  '対応表: 元のルール番号 → 新しいルール。移さないものは理由',
+  '確認用の通信の一覧(通るべき・止まるべき)',
+];
+txt(s, fwMake.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwMake.length - 1 } })), { x: 0.65, y: 1.85, w: 2.65, h: 3.0, fontSize: 10, paraSpaceAfter: 6 });
+const FKH = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 10 };
+s.addTable([
+  [{ text: '今の機器(FortiGate・Palo Alto・ASA)', options: FKH }, { text: 'AWS 側(人が決めるところ)', options: FKH }],
+  [kn('ゾーン(inside・outside・DMZ)'), { text: 'ゾーンは無い。VPC・サブネットとルートテーブルで通り道を作る(一番大変)' }],
+  [kn('上から順に、最初に一致したもの'), { text: '順番を守るなら strict order を選ぶ' }],
+  [kn('NAT'), { text: 'Network Firewall は NAT をしない。NAT ゲートウェイなどを別に' }],
+  [kn('IPsec VPN'), { text: 'Site-to-Site VPN などで別に作る' }],
+  [kn('アプリ・ユーザーの識別、ウイルス対策、URL カテゴリ'), { text: '一部はドメインの一覧・Suricata ルール・TLS 検査で。同じにはならないものもある' }],
+  [kn('単純な許可ルール'), { text: 'セキュリティグループで足りることが多い' }],
+], { x: 3.6, y: 1.4, w: 5.9, colW: [2.4, 3.5], fontSize: 9, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.48, valign: 'middle', objectName: 'fw mapping table' });
+txt(s, '設定の書き方を変えるのは AI が速い。通り道(ゾーン → VPC・ルート)の設計は人', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10.5, italic: true, color: C.accent2 });
+s.addNotes('今の会社の firewall の設定を Kiro に貼り付けて、AWS Network Firewall の設定を作ることはできます。ただし下書きまでで、大事なのは、元のルール 1 本ずつが新しい設定のどこへ移ったかの対応表も作らせて、人が突き合わせることです。Kiro に作らせるのは、Network Firewall の IaC、つまりポリシー、ステートフルのルールグループ、元の機器のアドレスやサービスのオブジェクトに当たる IP セットとポートセット、それに対応表と、確認用の通信の一覧です。そのまま移らないところもあります。今の機器のゾーンは AWS には無く、VPC とサブネット、ルートテーブルで通り道を作ります。ここが一番大変です。上から順に評価する作りを守るなら strict order を選びます。Network Firewall は NAT をしないので NAT ゲートウェイなどを別に用意し、IPsec VPN も別に作ります。アプリやユーザーの識別、ウイルス対策、URL カテゴリは、一部をドメインの一覧や Suricata ルール、TLS 検査で置き換えますが、同じにはならないものもあります。単純な許可ルールは、セキュリティグループで足りることが多いです。');
+
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('firewall の移行: 貼り付ける前と、進め方', { placeholder: 'title' });
+card(s, 0.5, 1.05, 4.35, 3.85, 'fwmig caution card');
+txt(s, '貼り付ける前に', { x: 0.75, y: 1.15, w: 3.9, h: 0.32, fontSize: 13, bold: true, color: C.accent3 });
+const fwCaution = [
+  '会社の設定は機密。VPN の事前共有鍵・管理者パスワードのハッシュ・SNMP のコミュニティ名は消すか置き換える。必要ならグローバル IP・社内のホスト名も',
+  '社外の AI に渡してよいかを社内の決まりで確かめる。Kiro のデータの扱い(学習に使われる設定など)も確認',
+  '使っていないルールが混ざっている。ヒット数を見て整理してから移すと、対応表の確認が楽',
+];
+txt(s, fwCaution.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < fwCaution.length - 1 } })), { x: 0.75, y: 1.55, w: 3.95, h: 3.25, fontSize: 10.5, paraSpaceAfter: 8 });
+const fwSteps = [
+  ['機密を伏せて渡す', 'ルールの一覧と対応表を作らせる'],
+  ['人が対応表を確かめる', '移さないルールの理由・ゾーンの置き換え'],
+  ['IaC と plan', '機械の検査・別の AI で確かめ、人が承認'],
+  ['検証環境で全部試す', '通るべき通信・止まるべき通信'],
+  ['しばらく並行で動かす', '今の機器とログを比べてから切り替え'],
+];
+fwSteps.forEach(([h, b], i) => {
+  const y = 1.05 + i * 0.77;
+  hex(s, 5.15, y + 0.03, 0.44, i === 1 || i === 3 ? C.accent2 : C.accent1, String(i + 1), 'fwmig step hex ' + (i + 1));
+  txt(s, h, { x: 5.72, y: y, w: 3.8, h: 0.3, fontSize: 12, bold: true, color: C.background1 });
+  txt(s, b, { x: 5.72, y: y + 0.32, w: 3.8, h: 0.3, fontSize: 10 });
+});
+txt(s, '次のページ: ラボの模擬 IPCOM で実際に変換して、元の機器と結果を比べた', { x: 0.5, y: 4.97, w: 9, h: 0.3, fontSize: 9.5, color: C.accent6 });
+s.addNotes('firewall の移行で、設定を貼り付ける前に気をつけることと、進め方です。会社の設定は機密情報なので、VPN の事前共有鍵、管理者パスワードのハッシュ、SNMP のコミュニティ名は消すか置き換えます。必要ならグローバル IP や社内のホスト名も伏せます。社外の AI に渡してよいかを社内の決まりで確かめ、Kiro のデータの扱いも確認します。長年使ってきた設定には使っていないルールが混ざっているので、ヒット数を見て整理してから移すと、対応表の確認が楽になります。進め方は 5 段階です。機密を伏せて渡してルールの一覧と対応表を作らせ、人が対応表を確かめ、IaC と plan を作らせて機械の検査と別の AI で確かめてから人が承認し、検証環境で通るべき通信と止まるべき通信を全部試し、できればしばらく今の機器と並行して動かしてログを比べてから切り替えます。次のページで、このラボの模擬 IPCOM の設定を実際に変換して確かめた結果を見ます。');
+
+// ラボで試した: 模擬 IPCOM → Network Firewall
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('ラボで試した: 模擬 IPCOM → Network Firewall', { placeholder: 'title' });
+txt(s, '設定の文字を読んで、Network Firewall の設定・対応表・確認用の通信を作る道具(tools/fw_migrate/ipcom_to_nfw.py)', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11, color: C.accent1 });
+const ipStats = [
+  ['6 → 8', '元のルール → 新しいルール(ポートごとに分けた)', C.accent1],
+  ['3 / 3', '移した / 要確認(送信元 any の外側のルール)', C.accent2],
+  ['OK', 'API の型定義(botocore)で JSON の形を確認', C.accent5],
+  ['3 行', '機密(パスワード・コミュニティ・事前共有鍵)は値を出さない', C.accent4],
+];
+ipStats.forEach(([v, d, col], i) => {
+  const y = 1.42 + i * 0.86;
+  card(s, 0.5, y, 3.6, 0.76, 'ipcom stat card ' + (i + 1));
+  txt(s, v, { x: 0.65, y: y + 0.08, w: 1.05, h: 0.6, fontSize: 20, bold: true, color: col, valign: 'middle' });
+  txt(s, d, { x: 1.7, y: y + 0.08, w: 2.3, h: 0.6, fontSize: 9.5, valign: 'middle' });
+});
+card(s, 4.3, 1.42, 5.2, 3.44, 'ipcom diff card');
+txt(s, '確認用の通信 21 本のうち、1 本で結果が違った', { x: 4.5, y: 1.52, w: 4.85, h: 0.32, fontSize: 12.5, bold: true, color: C.accent3 });
+s.addTable([
+  [{ text: '通信', options: KH }, { text: '元の機器', options: KH }, { text: '新しいルール', options: KH }],
+  [{ text: 'LAN(192.168.10.10)→ 外 22/tcp' }, { text: 'PASS(LAN の lan-out)', options: { color: C.accent5, bold: true } }, { text: 'DROP(sid 12000)', options: { color: C.accent3, bold: true } }],
+], { x: 4.5, y: 1.92, w: 4.85, colW: [1.95, 1.45, 1.45], fontSize: 9.5, color: C.background2, fill: { color: C.text1 }, border: { type: 'solid', pt: 1, color: C.text2 }, rowH: 0.4, valign: 'middle', objectName: 'ipcom diff table' });
+const ipWhy = [
+  '原因: WAN に付いていた ssh-deny(送信元 any → 22 を止める)は、元は「外から入る通信」だけに効いた',
+  'Network Firewall にはインタフェースの区別が無く、LAN から外へ出る ssh まで止めてしまう',
+  '直し方は人が決める: 送信元を外側に絞る、またはルールの順番を変える',
+];
+txt(s, ipWhy.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < ipWhy.length - 1 } })), { x: 4.5, y: 2.95, w: 4.85, h: 1.85, fontSize: 10, paraSpaceAfter: 6 });
+txt(s, '書き方を変えただけでは見えない違いを、両方の判定を計算して比べると見つけられる。IPCOM の構文は模擬、本物の AWS には未投入', { x: 0.5, y: 4.95, w: 9, h: 0.3, fontSize: 9.5, color: C.accent6 });
+s.addNotes('このラボで、模擬の IPCOM の設定を実際に Network Firewall の設定に変換してみました。道具は設定の文字を読み、Network Firewall の JSON と Terraform、対応表、確認用の通信を作ります。元のルール 6 本は、ポートごとに分けて新しいルール 8 本になりました。3 本はそのまま移せて、送信元が any の外側のルール 3 本は要確認にしています。JSON の形は、aws-cli と同じ AWS の API の型定義で確かめました。パスワード、SNMP のコミュニティ、VPN の事前共有鍵の 3 行は、値をどこにも出さず行番号だけを残します。確認用の通信 21 本について、元の機器ならどうなるか、新しいルールならどうなるかを両方計算して比べたところ、1 本だけ結果が違いました。LAN から外への ssh です。元の機器では LAN 側のルールで許可されますが、新しいルールでは、WAN に付いていた ssh を止めるルールが先に当たって止まってしまいます。元は外から入る通信だけに効いていたルールが、インタフェースの区別が無くなって内側の通信にも効いたためです。直し方は人が決めます。書き方を変えるだけでは見えない違いが、両方の判定を比べることで見つかりました。なお IPCOM の構文は模擬で、本物の AWS には入れていません。');
 
 // ほかの AWS の AI 開発ツール
 pres.addSection({ title: 'ほかの AWS の AI ツール' });

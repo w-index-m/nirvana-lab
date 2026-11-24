@@ -20,6 +20,12 @@ NICT の **NIRVANA改** というシステムがあります。ネットワー�
 
 > 対応機種(エミュレータの device_type)は Cisco IOS / Catalyst / Nexus / ASA / Arista / Juniper / Yamaha RTX / FortiGate / F5 BIG-IP / 富士通 Si-R・SR-S / APRESIA / AWS ALB などです。
 
+:::message
+この記事で紹介しているコード・設定・確認の記録は、すべて GitHub で公開しています。
+:::
+
+https://github.com/w-index-m/nirvana-lab
+
 ## 全体の構成
 
 モックニルヴァーナは2つの形で動きます。
@@ -236,7 +242,7 @@ Prometheus を画面上で「ヴァルハラ」と呼んでいます。理由は
 
 ```bash
 git clone https://github.com/w-index-m/nirvana-lab
-cd network-lab-emulator
+cd nirvana-lab
 pip install -r requirements.txt
 NETLAB_AUTH_DISABLE=1 python app.py
 # → http://localhost:8000/cyber-view (DEMO ボタンで障害シナリオが流れます)
@@ -256,4 +262,4 @@ cd cyber-view-standalone
 - 本物のプロトコルで動くエミュレータに、本物のツールを当てて確かめています。その過程で、エミュレータ自身のバグがたくさん見つかりました。
 - できないことは、画面と文書で正直に書いています。
 
-細かい記録(実際に打ったコマンドと結果)は、リポジトリの `docs/` にあります。
+細かい記録(実際に打ったコマンドと結果)は、リポジトリ([w-index-m/nirvana-lab](https://github.com/w-index-m/nirvana-lab))の `docs/` にあります。

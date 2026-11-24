@@ -1,0 +1,167 @@
+{
+  "RuleGroupName": "ipcom-hq-rules",
+  "Type": "STATEFUL",
+  "Capacity": 16,
+  "Description": "IPCOM-HQ から変換した下書き(元の評価順を保つため STRICT_ORDER)",
+  "RuleGroup": {
+    "RulesSource": {
+      "StatefulRules": [
+        {
+          "Action": "PASS",
+          "Header": {
+            "Protocol": "TCP",
+            "Source": "ANY",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "172.16.20.10/32",
+            "DestinationPort": "80"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "10000"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "PASS",
+          "Header": {
+            "Protocol": "TCP",
+            "Source": "ANY",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "172.16.20.10/32",
+            "DestinationPort": "443"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "10001"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "PASS",
+          "Header": {
+            "Protocol": "TCP",
+            "Source": "ANY",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "172.16.20.11/32",
+            "DestinationPort": "25"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "11000"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "DROP",
+          "Header": {
+            "Protocol": "TCP",
+            "Source": "ANY",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "ANY",
+            "DestinationPort": "22"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "12000"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "REJECT",
+          "Header": {
+            "Protocol": "TCP",
+            "Source": "192.168.10.0/24",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "ANY",
+            "DestinationPort": "445"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "20000"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "PASS",
+          "Header": {
+            "Protocol": "IP",
+            "Source": "192.168.10.0/24",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "ANY",
+            "DestinationPort": "ANY"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "21000"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "PASS",
+          "Header": {
+            "Protocol": "UDP",
+            "Source": "172.16.20.0/24",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "ANY",
+            "DestinationPort": "53"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "30000"
+              ]
+            }
+          ]
+        },
+        {
+          "Action": "PASS",
+          "Header": {
+            "Protocol": "TCP",
+            "Source": "172.16.20.0/24",
+            "SourcePort": "ANY",
+            "Direction": "FORWARD",
+            "Destination": "ANY",
+            "DestinationPort": "53"
+          },
+          "RuleOptions": [
+            {
+              "Keyword": "sid",
+              "Settings": [
+                "30001"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "StatefulRuleOptions": {
+      "RuleOrder": "STRICT_ORDER"
+    }
+  }
+}

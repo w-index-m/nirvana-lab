@@ -1,0 +1,10 @@
+# 対応表: IPCOM-HQ → Network Firewall
+
+| 行 | インタフェース | 方向 | 番号 | class-map | 処理 | 新しいルール(sid) | 状態 | 理由・注意 |
+|---|---|---|---|---|---|---|---|---|
+| 12 | lan0.0 | in | 100 | web-in | accept | 10000, 10001 | 要確認 | 送信元 any。元は lan0.0(外側)から入る通信だけに効いたが、Network Firewall にはインタフェースの区別が無く、どこから来た通信にも効く<br>ログ(audit-session-normal)→ ロギング設定(flow / alert) |
+| 13 | lan0.0 | in | 110 | mail-in | accept | 11000 | 要確認 | 送信元 any。元は lan0.0(外側)から入る通信だけに効いたが、Network Firewall にはインタフェースの区別が無く、どこから来た通信にも効く<br>ログ(audit-session-normal)→ ロギング設定(flow / alert) |
+| 14 | lan0.0 | in | 120 | ssh-deny | drop | 12000 | 要確認 | 送信元 any。元は lan0.0(外側)から入る通信だけに効いたが、Network Firewall にはインタフェースの区別が無く、どこから来た通信にも効く<br>ログ(audit-match-normal)→ ロギング設定(flow / alert) |
+| 19 | lan0.1 | in | 200 | lan-smb-block | reject | 20000 | 移した | ログ(audit-match-normal)→ ロギング設定(flow / alert) |
+| 20 | lan0.1 | in | 210 | lan-out | accept | 21000 | 移した | ログ(audit-session-normal)→ ロギング設定(flow / alert) |
+| 25 | lan0.2 | in | 300 | dmz-dns | accept | 30000, 30001 | 移した | ログ(audit-session-normal)→ ロギング設定(flow / alert) |
