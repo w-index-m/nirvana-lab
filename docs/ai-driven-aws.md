@@ -107,6 +107,60 @@ L4 の振り分けは BIG-IP の模擬装置で似た動きを確かめられる
 本物の BGP(TCP 179)を話すので、経路の広告・フィルター・AS パスを AWS 側役の相手と組んで事前に試せる。VPC の模擬は無い
 (CIDR の重なりや経路表のチェックは小さな道具で手伝える)。
 
+## DX → DXGW → VPC は 1 回の作業でつながるか(ALB・NLB・ACM も含めて)
+
+Kiro の資料 8〜11 枚目。本物の AWS では試していない(2026-11-25 に公式ドキュメントの検索結果で確かめた範囲)。
+
+**AWS 側の設定は 1 回の apply にまとめられる。ただし全体は 3 段で、回線が来ていなければ 1 日では終わらない。**
+
+| 段 | 中身 | 誰が | かかる時間(目安) |
+|---|---|---|---|
+| 1. 物理の回線 | 専用接続の申し込み(または事業者のホスト型)、LOA-CFA を受け取り構内の配線(クロスコネクト)を頼む | 人・事業者(コードにできない) | 数日〜数週間 |
+| 2. AWS 側の論理 | DXGW・VIF(private / transit)・VPC に付ける VGW(または TGW)・DXGW との関連付け・ルートの伝搬 | Kiro に IaC を書かせ、1 回の apply | 数分〜数十分 |
+| 3. オンプレの BGP | ルーターに VLAN・IP・ASN・認証キー → BGP が張れて VIF が使える | 人 | 当日の作業時間内 |
+
+- **回線を先につなぐ必要は無い**: DXGW・VGW・関連付けは、1 段目と並行して先に作れる。VIF は回線(接続)の上に作るもので、物理と BGP がつながってはじめて使える。
+- **対向(オンプレ)と AWS の設定の前後は自由**。VIF を作るとルーターの設定例を取れるので、AWS → 対向の順が楽。
+- ホスト型の VIF はパートナーが作り、こちらは受け入れる。別アカウントの VGW を関連付けるときは提案 → 承認(提案は 7 日で失効)。
+
+**DXGW に VPC はつなげるか**: つなげる。ただし VPC を直接ではなく、VPC 側の窓口を関連付ける。
+
+| 窓口 | VIF | 向いている場面 | 1 つの DXGW あたりの上限(既定) |
+|---|---|---|---|
+| VGW | private | VPC が少ない。別リージョン・別アカウントも可 | 20 個(引き上げ不可) |
+| TGW | transit | VPC が多い・VPC 同士も通したい | 6 個 |
+| Cloud WAN のコアネットワーク | — | 複数リージョンを Cloud WAN でまとめている | 使う前に確かめる |
+
+VGW の関連付けでは、DXGW を通って VPC 同士は通信しない。1 つの VGW・1 つの private VIF は 1 つの DXGW にしか付けられない。
+TGW では、オンプレへ広告するプレフィックス(allowed prefixes)を指定し、TGW と DXGW の ASN を分ける。
+
+**対向がキャリアのサービスなら**: DX のロケーションに自分の機器や拠点は要らない。キャリアの網に拠点がつながっていればよい。
+L3 型は AWS との BGP をキャリアが張り、L2 型は自分の拠点のルーターから張る。どちらも AWS 側ではホスト型の VIF(または接続)を受け入れて DXGW に付ける。
+どこまでキャリアが持つか(BGP・冗長・帯域)・ASN と広告する経路・2 本目の冗長は、キャリアごとに違うので契約前に資料で確かめる。
+
+予定しているサービス(2026-11-25 に検索で確かめた範囲、契約内容は未確認):
+
+- **NTT Com の Flexible InterConnect(FIC)**: API リファレンスに「FIC-Connection AWS」があり、Port から AWS と FIC-Router から AWS の 2 通り、それぞれ private / public / transit の VIF がある。
+  2021 年 1 月から Transit Gateway(transit VIF)にも対応。名前からは、Port 型は自分のルーターで AWS と BGP(上の L2 型に近い)、FIC-Router 型は FIC 側のルーターで BGP(L3 型に近い)と読めるが、BGP を誰が張るか・AWS 側で受け入れるのが接続か VIF かは、FIC の資料で確かめる。
+- **富士通**: 検索では「クラウドコネクト for AWS Direct Connect」(データセンター間接続の Digital enhanced EXchange 経由)が見つかった。**「MLC」という名前のサービスは確かめられなかった**(富士通の公式サイトはこの環境から開けない)。正式名と、BGP・冗長の範囲は富士通の資料で確かめる。
+- 2 社に分けるなら、2 本目の冗長を別キャリアにできる。その場合は AWS へ広告する経路の優先度(AS パスの長さや DX のローカルプリファレンスのコミュニティ)を、2 社とそろえて決める。
+
+出典(追加): [FIC-Connection AWS の API リファレンス](https://sdpf.ntt.com/services/docs/fic/api-references/connection-aws/Port_to_Aws_Private.html)、
+[NTT Com のニュースリリース(2021-01-06、Transit Gateway 対応)](https://www.ntt.com/about-us/press-releases/news/article/2021/0106.html)、
+[ホストされた仮想インタフェース(AWS)](https://docs.aws.amazon.com/ja_jp/directconnect/latest/UserGuide/hosted-vif.html)、
+[富士通の資料(dex-overview)](https://www.fujitsu.com/jp/imagesgig5/dex-overview.pdf)。
+
+**VPC 内の ALB・NLB と ACM**: インターネット向けの ALB で HTTPS を受けるなら ACM の証明書が要る(ALB と同じリージョン)。
+順番は VPC の土台(public サブネットを 2 AZ 以上・IGW)→ ACM の申請と DNS 検証 → ALB(443 に証明書、80 は 443 へ)→ NLB(TCP のまま通すなら証明書は不要、TLS で受けるなら要る)→ 名前を ALB へ向ける。
+待ちになるのは DNS 検証。DNS が Route 53 なら同じ apply で CNAME を作って待てる。外の DNS を別の部署が持っていると、登録待ちで日をまたぐ。
+
+出典(検索結果で確認): [Direct Connect gateways](https://docs.aws.amazon.com/directconnect/latest/UserGuide/direct-connect-gateways-intro.html)、
+[Virtual private gateway associations](https://docs.aws.amazon.com/directconnect/latest/UserGuide/virtualgateways.html)、
+[Associate a VGW across accounts](https://docs.aws.amazon.com/directconnect/latest/UserGuide/multi-account-associate-vgw.html)、
+[Direct Connect quotas](https://docs.aws.amazon.com/directconnect/latest/UserGuide/limits.html)、
+[Configure a Direct Connect Classic connection](https://docs.aws.amazon.com/directconnect/latest/UserGuide/getting_started.html)、
+[AWS::DirectConnect::PrivateVirtualInterface](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-directconnect-privatevirtualinterface.html)。
+
 ## 要件定義書も Kiro で作れるか
 
 下書きなら作れる。ただし Kiro の `requirements.md` は「機能 1 つ分」のユーザーストーリーと受け入れ条件(EARS 形式)で、
@@ -312,7 +366,7 @@ Kiro に作らせるもの:
 3. IaC と plan を作らせ、機械の検査・別の AI で確かめて人が承認 → 4. 検証環境で通るべき通信・止まるべき通信を全部試す →
 5. できればしばらく今の機器と並行して動かし、ログを比べてから切り替える。
 
-**ラボで試した結果**(Kiro の資料 25 枚目、詳細は `docs/fw-migrate-ipcom-to-nfw.md`): 模擬 IPCOM の設定(ルール 6 本)を `tools/fw_migrate/ipcom_to_nfw.py` で変換し、
+**ラボで試した結果**(Kiro の資料 29 枚目、詳細は `docs/fw-migrate-ipcom-to-nfw.md`): 模擬 IPCOM の設定(ルール 6 本)を `tools/fw_migrate/ipcom_to_nfw.py` で変換し、
 新しいルール 8 本(移した 3 / 要確認 3)、API の型定義(botocore)で形を確認、機密 3 行は値を出さない。確認用の通信 21 本で元の機器と新しいルールの判定を比べると 1 本違った:
 LAN → 外の 22/tcp は、元の機器では許可、新しいルールでは WAN 側の ssh-deny(送信元 any)が先に当たって止まる(インタフェースの区別が消えたため)。
 IPCOM の構文は模擬で、本物の AWS には入れていない。

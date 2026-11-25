@@ -212,6 +212,95 @@ awsLab.forEach(([h, b], i) => {
 });
 s.addNotes('この 4 つを Kiro で進めるときは、4 つの決まりごとを置きます。plan に作り直しが出たら人が判断するまで止める。Direct Connect の経路は、広告する経路と受け取る経路、優先度を表に書かせ、オンプレ側と突き合わせる。本番への反映は作業時間を決めて CI/CD から行い、Kiro から直接 apply しない。CIDR や ASN、VLAN、EIP などの値はパラメータシートを正として、反映後は describe で確かめる。このラボでは、ALB は模擬装置で設計書の自動作成まで、Direct Connect のオンプレ側の BGP は本物の BGP を話す Cisco や Catalyst で事前に試せます。');
 
+// DX → DXGW → VPC は 1 回の作業でできる?
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'AWS の構築' });
+s.addText('DX → DXGW → VPC は 1 回の作業でつながる?', { placeholder: 'title' });
+txt(s, 'AWS 側の設定は 1 回の apply にまとめられる。ただし全体は 3 段で、回線が来ていなければ 1 日では終わらない', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+const dxStages = [
+  ['1. 物理の回線', C.accent3, '人・事業者', ['回線の申し込み(専用接続)か、パートナーの接続(ホスト型)', 'LOA-CFA をもらい、構内の配線(クロスコネクト)を頼む', 'コードにできない'], '数日〜数週間(事業者と構内の工事しだい)'],
+  ['2. AWS 側の論理', C.accent1, 'Kiro が IaC に', ['DXGW・VIF(private / transit)', 'VGW を VPC に付ける(または TGW)', 'DXGW との関連付け・ルートの伝搬'], '1 回の apply。数分〜数十分'],
+  ['3. オンプレの BGP', C.accent2, '人', ['ルーターに VLAN・IP・ASN・認証キー', '対向とAWSの前後は自由。VIF から設定例を取れるので AWS → 対向が楽', 'BGP が張れて VIF が available に'], '作業時間内(当日)'],
+];
+dxStages.forEach(([h, col, who, items, time], i) => {
+  const x = 0.5 + i * 3.05;
+  card(s, x, 1.42, 2.9, 2.85, 'dx stage card ' + (i + 1));
+  txt(s, h, { x: x + 0.15, y: 1.5, w: 2.6, h: 0.32, fontSize: 13, bold: true, color: col });
+  txt(s, who, { x: x + 0.15, y: 1.82, w: 2.6, h: 0.25, fontSize: 9.5, color: C.accent6 });
+  txt(s, items.map((t, j) => ({ text: t, options: { bullet: true, breakLine: j < items.length - 1 } })), { x: x + 0.15, y: 2.12, w: 2.65, h: 1.45, fontSize: 9.5, paraSpaceAfter: 4 });
+  txt(s, time, { x: x + 0.15, y: 3.65, w: 2.65, h: 0.5, fontSize: 10, bold: true, color: col });
+});
+card(s, 0.5, 4.38, 9.0, 0.62, 'dx oneday card');
+txt(s, [
+  { text: '順番: ', options: { bold: true, color: C.accent5 } },
+  { text: '回線を待たなくてよい: DXGW・VGW・関連付けは 1 段目と並行して先に作れる。VIF は回線(接続)の上に作り、物理と BGP がつながって使える。回線が来ていれば、残りは同じ日に。ホスト型の VIF はパートナーが作り、こちらは受け入れる' },
+], { x: 0.7, y: 4.43, w: 8.6, h: 0.55, fontSize: 9.5, valign: 'middle' });
+txt(s, '日数は目安。物理の回線はリードタイムを先に確かめて、計画に入れる', { x: 0.5, y: 5.02, w: 9, h: 0.22, fontSize: 9.5, italic: true, color: C.accent2 });
+s.addNotes('Direct Connect から Direct Connect ゲートウェイを通って VPC までつなぐのは、まとめて 1 回でできるか、という質問です。AWS 側の設定は 1 回の Terraform の apply にまとめられますが、全体は 3 段に分かれます。1 段目は物理の回線で、回線の申し込み、LOA-CFA を受け取って構内の配線を頼むところです。コードにできず、事業者と構内の工事しだいで数日から数週間かかります。2 段目は AWS 側の論理の設定で、Direct Connect ゲートウェイ、仮想インタフェース、VPC に付ける仮想プライベートゲートウェイ、関連付け、ルートの伝搬です。ここは Kiro に IaC を書かせて 1 回の apply で入れられ、数分から数十分です。3 段目はオンプレ側のルーターの BGP の設定で、BGP が張れると仮想インタフェースが使える状態になります。対向のルーターと AWS のどちらを先に設定してもかまいません。仮想インタフェースを作るとルーターの設定例をダウンロードできるので、AWS を先にして対向を後にすると楽です。物理の回線をつないでから Direct Connect ゲートウェイを作る必要はありません。Direct Connect ゲートウェイ、仮想プライベートゲートウェイ、その関連付けは、回線の手配と並行して先に作っておけます。仮想インタフェースは回線、つまり接続の上に作るもので、物理の回線と BGP がつながってはじめて使える状態になります。回線がもう来ていれば、残りは同じ日にできます。ホスト型の接続では、仮想インタフェースはパートナーが作り、こちらは受け入れるだけです。日数は目安なので、物理の回線のリードタイムは先に確かめて計画に入れてください。');
+
+// DXGW に VPC をつなぐには
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'AWS の構築' });
+s.addText('DXGW に VPC はつなげる?', { placeholder: 'title' });
+txt(s, 'つなげる。ただし VPC を直接ではなく、VPC 側の「窓口」を DXGW に関連付ける。窓口は 3 種類', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '窓口', options: KH }, { text: 'DX 側の VIF', options: KH }, { text: '向いている場面', options: KH }, { text: '数の上限(既定)', options: KH }],
+  [kn('VGW(仮想プライベートゲートウェイ)'), { text: 'private VIF' }, { text: 'VPC が少ない。VPC ごとに VGW を付ける。別リージョン・別アカウントの VPC も可' }, { text: '1 つの DXGW に VGW 20 個(引き上げ不可)' }],
+  [kn('TGW(Transit Gateway)'), { text: 'transit VIF' }, { text: 'VPC が多い・VPC 同士も通したい。TGW に VPC をまとめる' }, { text: '1 つの DXGW に TGW 6 個' }],
+  [kn('Cloud WAN のコアネットワーク'), { text: '—' }, { text: '複数リージョンを Cloud WAN でまとめている' }, { text: '使う前に確かめる' }],
+], { x: 0.5, y: 1.4, w: 9.0, colW: [2.4, 1.3, 3.3, 2.0], fontSize: 9.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: [0.32, 0.66, 0.6, 0.5], valign: 'middle', objectName: 'dxgw attach table' });
+card(s, 0.5, 3.65, 9.0, 1.3, 'dxgw note card');
+const dxgwNotes = [
+  'DXGW を通って VPC 同士は通信しない(VGW の関連付けの場合)。VPC 同士は TGW やピアリングで',
+  '1 つの VGW・1 つの private VIF は、1 つの DXGW にしか付けられない',
+  'TGW の関連付けでは、オンプレへ広告するプレフィックス(allowed prefixes)を指定する。TGW と DXGW の ASN は別にする',
+];
+txt(s, dxgwNotes.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < dxgwNotes.length - 1 } })), { x: 0.7, y: 3.75, w: 8.6, h: 1.15, fontSize: 10, paraSpaceAfter: 4 });
+txt(s, 'どれも AWS 側の論理の設定なので、Kiro に IaC を書かせられる(前のページの 2 段目)', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('Direct Connect ゲートウェイに VPC をつなげるか、という質問です。つなげますが、VPC を直接つなぐのではなく、VPC 側の窓口を Direct Connect ゲートウェイに関連付けます。窓口は 3 種類です。1 つ目は仮想プライベートゲートウェイで、private の仮想インタフェースと組み合わせます。VPC ごとに付け、別のリージョンや別のアカウントの VPC もつなげます。1 つの Direct Connect ゲートウェイに 20 個までで、この上限は引き上げられません。2 つ目は Transit Gateway で、transit の仮想インタフェースと組み合わせます。VPC が多いときや VPC 同士も通したいときに向いていて、1 つの Direct Connect ゲートウェイに 6 個までです。3 つ目は Cloud WAN のコアネットワークです。気をつけることとして、仮想プライベートゲートウェイで関連付けた場合、Direct Connect ゲートウェイを通って VPC 同士は通信しません。1 つの仮想プライベートゲートウェイと 1 つの private の仮想インタフェースは、1 つの Direct Connect ゲートウェイにしか付けられません。Transit Gateway の場合は、オンプレへ広告するプレフィックスを指定し、ASN を分けます。どれも AWS 側の論理の設定なので、Kiro に IaC を書かせられます。');
+
+// 対向がキャリアのサービスなら
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'AWS の構築' });
+s.addText('対向がキャリアのサービスなら、拠点は要る?', { placeholder: 'title' });
+txt(s, 'DX のロケーションに自分の機器や拠点は要らない。キャリアの網に拠点がつながっていればよい(閉域網の AWS 接続オプションなど)', { x: 0.5, y: 0.98, w: 9, h: 0.5, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '', options: KH }, { text: '自前で専用接続', options: KH }, { text: 'キャリアのサービス(L3 型)', options: KH }, { text: 'キャリアのサービス(L2 型)', options: KH }],
+  [kn('DX ロケーションの機器'), { text: '自分のルーター・ラック・構内配線' }, { text: '要らない(キャリアの機器)' }, { text: '要らない(キャリアの機器)' }],
+  [kn('AWS との BGP'), { text: '自分のルーター' }, { text: 'キャリアが張る。こちらはキャリアと経路の取り決め' }, { text: '自分の拠点のルーターから張る' }],
+  [kn('AWS 側で受けるもの'), { text: '接続 + 自分で作る VIF' }, { text: 'ホスト型の VIF か接続を受け入れ → DXGW に付ける', options: { colspan: 2 } }],
+  [kn('こちらの作業'), { text: '1〜3 段すべて' }, { text: '契約・受け入れ・DXGW と VPC 側', options: {} }, { text: '契約・受け入れ・DXGW と VPC 側・拠点の BGP' }],
+], { x: 0.5, y: 1.6, w: 9.0, colW: [1.9, 2.1, 2.5, 2.5], fontSize: 9.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: [0.32, 0.5, 0.58, 0.5, 0.5], valign: 'middle', objectName: 'carrier table' });
+card(s, 0.5, 4.15, 9.0, 0.82, 'carrier note card');
+txt(s, [
+  { text: '確かめること: ', options: { bold: true, color: C.accent5 } },
+  { text: 'どこまでキャリアが持つか(BGP・冗長・帯域)、ASN と広告する経路、2 本目の冗長。例: NTT Com の FIC は「Port から AWS」と「FIC-Router から AWS」の 2 通り(private / public / transit VIF)。富士通は「クラウドコネクト for AWS Direct Connect」。中身は契約前に各社の資料で' },
+], { x: 0.7, y: 4.2, w: 8.6, h: 0.72, fontSize: 9.5, valign: 'middle' });
+txt(s, 'Kiro(IaC)に任せられるのは、受け入れ・DXGW・VPC 側。キャリアとの契約と経路の取り決めは人', { x: 0.5, y: 5.0, w: 9, h: 0.25, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('対向がキャリアのサービスの場合、拠点が要るかという質問です。Direct Connect のロケーションに自分の機器や拠点を置く必要はありません。キャリアの閉域網の AWS 接続オプションのようなサービスなら、キャリアの機器がロケーションにあり、こちらの拠点がキャリアの網につながっていれば足ります。サービスには大きく 2 つの型があります。L3 型では、AWS との BGP はキャリアが張り、こちらはキャリアと経路の取り決めをします。L2 型では、自分の拠点のルーターから AWS と BGP を張ります。どちらも AWS 側では、キャリアが作ったホスト型の仮想インタフェースか接続を受け入れて、Direct Connect ゲートウェイに付けます。確かめることは、どこまでキャリアが持つか、ASN と広告する経路、そして 2 本目の冗長を別のロケーションや別のキャリアにするかです。たとえば NTT コミュニケーションズの Flexible InterConnect には、ポートから AWS へつなぐ形と、FIC-Router から AWS へつなぐ形があり、private、public、transit のどの仮想インタフェースにも対応しています。富士通には、クラウドコネクト for AWS Direct Connect というサービスがあります。サービスの中身はキャリアごとに違うので、契約前に資料で確かめてください。Kiro に任せられるのは、受け入れと Direct Connect ゲートウェイ、VPC 側の設定で、キャリアとの契約と経路の取り決めは人が行います。');
+
+// VPC 内の ALB・NLB と ACM も含めると
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'AWS の構築' });
+s.addText('VPC 内の ALB・NLB と ACM も含めると', { placeholder: 'title' });
+txt(s, 'その認識で合っている。HTTPS の ALB には ACM の証明書(同じリージョン)。待ちは DNS 検証', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+const albSteps = [
+  ['VPC の土台', 'public サブネット(2 AZ 以上、IGW へのルート)・private サブネット・SG', 'Kiro(IaC)'],
+  ['ACM の証明書', 'ドメイン名(SAN も)を申請 → DNS 検証の CNAME → 発行(Issued)を待つ', 'DNS が Route 53 なら同じ apply で。外の DNS なら人が CNAME を登録'],
+  ['ALB(internet-facing)', 'public サブネットに置く。443 のリスナーに証明書、80 は 443 へ転送。ターゲットグループ・ヘルスチェック', 'Kiro(IaC)。公開してよいかは人'],
+  ['NLB(VPC の中)', 'TCP のまま通すなら証明書は不要。TLS で受けるなら ACM が要る。DX からはオンプレ → NLB の経路と SG', 'Kiro(IaC)。送信元 IP の扱いは人が決める'],
+  ['名前を向ける', 'Route 53 の ALIAS(外の DNS なら CNAME)を ALB へ。https で開いて証明書を確かめる', '外の DNS は人。確認は人'],
+];
+albSteps.forEach(([h, b, who], i) => {
+  const y = 1.35 + i * 0.67;
+  hex(s, 0.5, y + 0.03, 0.4, i === 1 ? C.accent2 : C.accent1, String(i + 1), 'alb step hex ' + (i + 1));
+  txt(s, h, { x: 1.0, y, w: 2.2, h: 0.3, fontSize: 11.5, bold: true, color: C.background1 });
+  txt(s, b, { x: 1.0, y: y + 0.27, w: 5.1, h: 0.38, fontSize: 8.5 });
+  txt(s, who, { x: 6.2, y: y + 0.04, w: 3.3, h: 0.58, fontSize: 9.5, color: C.accent2 });
+});
+card(s, 0.5, 4.72, 9.0, 0.45, 'alb oneday card');
+txt(s, [
+  { text: '1 日で終わる?: ', options: { bold: true, color: C.accent5 } },
+  { text: 'DNS が Route 53 なら、DX の 2・3 段目と同じ日に収まりやすい。外の DNS を別の部署が持っていると、CNAME の登録待ちで日をまたぐ' },
+], { x: 0.7, y: 4.75, w: 8.6, h: 0.4, fontSize: 9.5, valign: 'middle' });
+s.addNotes('VPC の中に ALB と NLB も作り、ALB はインターネットから受けて ACM の証明書も使う場合です。インターネット向けの ALB で HTTPS を受けるなら、ACM の証明書が要ります。証明書は ALB と同じリージョンに作ります。順番は 5 つです。1 つ目は VPC の土台で、ALB を置く public のサブネットを 2 つ以上の AZ に作り、インターネットゲートウェイへのルートを付けます。2 つ目は ACM の証明書で、ドメイン名を申請し、DNS 検証の CNAME を置いて、発行されるのを待ちます。DNS が Route 53 なら同じ apply の中で CNAME を作って待てますが、外の DNS なら人が CNAME を登録します。ここがいちばん待ちになりやすいところです。3 つ目はインターネット向けの ALB で、443 のリスナーに証明書を付け、80 は 443 へ転送します。4 つ目は VPC の中の NLB で、TCP のまま通すなら証明書は要りませんが、TLS で受けるなら ACM が要ります。Direct Connect からはオンプレから NLB への経路と SG を確かめます。5 つ目は、Route 53 の ALIAS などで名前を ALB に向け、https で開いて証明書を確かめます。DNS が Route 53 なら、Direct Connect の 2 段目と 3 段目と同じ日に収まりやすいです。外の DNS を別の部署が持っていると、CNAME の登録待ちで日をまたぎます。');
+
 pres.addSection({ title: '要件定義書と設計書' });
 // 11f4. 要件定義書も Kiro で作れる?
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '要件定義書と設計書' });
