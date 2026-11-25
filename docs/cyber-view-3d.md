@@ -647,4 +647,4 @@ SE が切り替わる、ページのエラーなし(単体版に無い API の 4
 ![ACK を押したところ](images/cyber-view-ack-cleared.jpg)
 ![AI の解析中](images/cyber-view-ai-analyzing.jpg)
 
-実機(3650)で syslog の「警」が立った NETWORK 画面: `images/nirvana-real-3650-network-alert.jpg`(紹介資料 v2 の18枚目)。
+実機(3650)で syslog の「警」が立った NETWORK 画面: `images/nirvana-real-3650-network-alert.jpg`(紹介資料 v2 の16枚目)。
