@@ -608,6 +608,28 @@ txt(s, [
 txt(s, 'どのやり方でも、aws-cli は「確かめる」ために使うのが基本', { x: 0.5, y: 4.98, w: 9, h: 0.28, fontSize: 11.5, italic: true, color: C.accent2 });
 s.addNotes('Kiro が IaC を作り、人が aws-cli で設定を入れる、という理解は少し違います。IaC にした場合、設定を入れるのは IaC の道具です。Terraform なら terraform apply、CloudFormation なら変更セットの実行、CDK なら cdk deploy で、本番ではこれを CI/CD が流します。aws-cli は、作業前と作業後に describe などで確かめるために使います。CI/CD が無い会社では人が手で入れますが、その場合も打つのは aws-cli ではなく、terraform plan -out で保存した差分を terraform apply tfplan でそのまま入れる形です。Kiro に aws-cli の手順書を書かせて人が貼り付けるやり方もできますが、それは IaC ではなく昔ながらの手順書の作業で、コードが無いので実物とそろわず、切り戻しも別に書く必要があり、記録は CloudTrail だけになります。');
 
+// AWS を変える方法: 直接変えるか、IaC か
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
+s.addText('Kiro で AWS を変える方法は? 直接か IaC か', { placeholder: 'title' });
+txt(s, 'PR → CI/CD → 人の承認に乗るのは IaC の 3 つだけ。直接変える方法は、実行したその場で AWS が変わる', { x: 0.5, y: 0.98, w: 9, h: 0.3, fontSize: 11.5, color: C.accent1 });
+s.addTable([
+  [{ text: '種類', options: KH }, { text: '方法', options: KH }, { text: '承認の流れ', options: KH }, { text: '反映する命令・使いどころ', options: KH }],
+  [kn('直接変える'), { text: 'AWS の MCP サーバー経由の API、Cloud Control API、SDK(boto3 など)、aws-cli' }, { text: '乗らない', options: { color: THEME.colors.accent3, bold: true } }, { text: '実行した時点で変わる。本番は読み取り(describe)だけにする' }],
+  [kn('IaC'), { text: 'Terraform' }, { text: '乗る', options: { color: THEME.colors.accent5, bold: true } }, { text: 'terraform plan → apply' }],
+  [kn(''), { text: 'CloudFormation' }, { text: '乗る', options: { color: THEME.colors.accent5, bold: true } }, { text: 'aws cloudformation deploy、または変更セット(create → execute)。ここだけ命令に aws-cli を使う' }],
+  [kn(''), { text: 'AWS CDK' }, { text: '乗る', options: { color: THEME.colors.accent5, bold: true } }, { text: 'cdk diff → cdk deploy(中身は CloudFormation)' }],
+], { x: 0.5, y: 1.38, w: 9.0, colW: [1.2, 3.0, 1.1, 3.7], fontSize: 9.5, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: [0.3, 0.6, 0.38, 0.55, 0.38], valign: 'middle', objectName: 'change method table' });
+txt(s, '正しい流れ', { x: 0.5, y: 3.72, w: 9, h: 0.28, fontSize: 12, bold: true, color: C.accent5 });
+const flow = ['Kiro が IaC を書き、差分(plan・変更セット)を出して PR', 'CI が検査', '人が差分を読んで承認', 'CI/CD が反映(apply・deploy・変更セットの実行)', 'aws-cli の describe で確かめる'];
+flow.forEach((t, i) => {
+  const x = 0.5 + i * 1.82;
+  card(s, x, 4.05, 1.72, 0.85, 'flow card ' + (i + 1));
+  hex(s, x + 0.08, 4.12, 0.32, i === 2 ? C.accent2 : C.accent1, String(i + 1), 'flow hex ' + (i + 1));
+  txt(s, t, { x: x + 0.45, y: 4.1, w: 1.22, h: 0.75, fontSize: 8.5, valign: 'middle' });
+});
+txt(s, '「aws-cli で IaC を書く」ではない。IaC はコード、aws-cli は確認用(CloudFormation の反映だけは例外)', { x: 0.5, y: 4.98, w: 9, h: 0.26, fontSize: 10, italic: true, color: C.accent2 });
+s.addNotes('Kiro で AWS を変える方法の整理です。大きく 2 種類に分かれます。1 つ目は直接変える方法で、AWS の MCP サーバー経由で API を呼ぶ、Cloud Control API、boto3 などの SDK、そして aws-cli です。これらは実行した時点で AWS が変わってしまうので、PR、CI/CD、人の承認という流れには乗りません。本番では読み取り、つまり describe のような確認だけに使います。2 つ目は IaC で、Terraform、CloudFormation、AWS CDK の 3 つです。これらはコードなので、PR から承認までの流れに乗ります。反映する命令は、Terraform は terraform apply、CDK は cdk deploy、CloudFormation は aws cloudformation deploy か変更セットの作成と実行です。CloudFormation だけは反映の命令に aws-cli を使うので、「aws-cli で反映する」は CloudFormation に限れば半分正しい言い方です。正しい流れは、Kiro が IaC を書いて差分を出し PR にする、CI が検査する、人が差分を読んで承認する、CI/CD が反映する、最後に aws-cli の describe で確かめる、の 5 段です。');
+
 // 設定の正しさは別の AI に確かめさせる?
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '使い方と運用' });
 s.addText('設定の正しさは、別の AI に確かめさせればよい?', { placeholder: 'title' });
