@@ -13,6 +13,22 @@
 
 動画(80秒・字幕つき): [videos/cyber-view-l2-loop-catalyst.mp4](videos/cyber-view-l2-loop-catalyst.mp4)
 
+### 今の画面で撮り直した版(2026-11-25)
+
+[![今の画面での MAC フラップと L2 ループ](videos/cyber-view-l2-loop-macflap-v2.gif)](videos/cyber-view-l2-loop-macflap-v2.mp4)
+
+動画(80秒・字幕つき、gif は 2 倍速): [videos/cyber-view-l2-loop-macflap-v2.mp4](videos/cyber-view-l2-loop-macflap-v2.mp4)
+
+`/cyber-view?view=links` で撮影。流れ:
+
+1. Catalyst 3台(STP 無し)を一列につないだ状態(SYSTEM 正常)
+2. ACC-SW3 Gi1/0/2 ↔ CORE-SW1 Gi1/0/2 をつなぐ → 「L2 LOOP 発生中」、輪が赤くなり粒が回る、CPU の「情」「注」
+3. `%SW_MATM-4-MACFLAP_NOTIF` が 15 秒ごとに LOG WARN として出る
+4. ACC-SW3 Gi1/0/2 に `storm-control broadcast level 5` → `%STORM_CONTROL-3-FILTERED`。ループは続く
+5. `storm-control action shutdown` → ERR-DISABLED Gi1/0/2・LINK DOWN、「LOOP CLEARED」
+
+途中で出る RESPONSE パネル(遮断の候補)は、画面が見えるよう撮影では閉じています。解消直後も HIGH LOAD が出ているのは、リンクの量が直近 1 分の平均のためです(ストームの分がしばらく残る)。
+
 ## 何をするか
 
 `engine/l2_loop.py` の `LoopEngine` が1秒ごとに、スイッチ(catalyst / nexus / srs / apresia)どうしの「生きているリンク」で輪を探します。橋でない辺を Tarjan 法で求め、連結成分ごとに1つのループとして扱います。
