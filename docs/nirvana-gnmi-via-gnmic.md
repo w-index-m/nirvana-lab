@@ -152,6 +152,18 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
 
   ![実機 3650 の syslog と AI ログ解析](images/nirvana-real-3650-syslog-ai.jpg)
 
+- ローカル LLM(Ollama)で AI ログ解析(2026-11-25、ユーザーの PC): Windows の Ollama に qwen2.5:7b を入れ、
+  `nirvana.env` に `NIRVANA_AI_PROVIDER=ollama`・`OLLAMA_URL=http://localhost:11434`・`OLLAMA_MODEL=qwen2.5:7b` を書いて
+  設定画面の「開始」で起動し直した。Loopback0 を shutdown / no shutdown すると、AI の窓が `ollama · qwen2.5:7b`、
+  「#4 · ollama qwen2.5:7b · ログ 4 行 → 送信 4 行」で、要約(Loopback0 が一時的にダウンして UP に戻った)・根拠のログ 4 行・
+  確認だけの show コマンドを返した。CPU で約 2 分(初回、待つのは最大 180 秒)。つまずいた点: `NIRVANA_AI_PROVIDER` を
+  書かないと、鍵のある Groq が先に選ばれる(既定の順は Claude → OpenAI 互換 → Ollama)。`nirvana.env` は起動時にしか読まない
+  ので、書いたら「開始」で起動し直す(AI の窓の解析番号が続いていれば、古いニルヴァーナのまま)。
+  あわせて Groq は、User-Agent の修正後に 403 が出なくなり(実機で確認)、代わりに既定のモデル名 `llama-3.1-8b-instant` が
+  `404 model_not_found` になった。Groq を使うなら、いま使えるモデル名を `NIRVANA_AI_MODEL` に書く。紹介資料 v2 の 17 枚目。
+
+  ![実機 3650 のローカル LLM(qwen2.5:7b)による AI ログ解析](images/nirvana-real-3650-syslog-ai-ollama.jpg)
+
 紹介資料 `docs/nirvana-introduction-v2.pptx` に、この6枚のスライド(当時の10〜15枚目。13枚目を足したあとは 10〜12・14〜16枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
 
