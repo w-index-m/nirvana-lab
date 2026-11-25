@@ -1,6 +1,6 @@
 # AWS ネットワーク設計書のサンプル(VPC・Direct Connect・ALB・NAT・WAF・Network Firewall)
 
-エンジニアが書く「基本設計書」と「パラメータシート」のサンプルです(Kiro の資料 `docs/ai-driven-dev-kiro.pptx` の 12・13 枚目。Claude がこのラボで作った見本で、Kiro が実際に出すものとは形が違うことがあります)。会社名・ドメイン・IP・ASN はすべて架空(文書用の範囲)で、
+エンジニアが書く「基本設計書」と「パラメータシート」のサンプルです(Kiro の資料 `docs/ai-driven-dev-kiro.pptx` の 16・17 枚目。Claude がこのラボで作った見本で、Kiro が実際に出すものとは形が違うことがあります)。会社名・ドメイン・IP・ASN はすべて架空(文書用の範囲)で、
 本物の AWS には入れていません。
 
 | ファイル | 中身 |

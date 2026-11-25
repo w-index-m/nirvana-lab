@@ -1,6 +1,6 @@
 # 模擬 IPCOM の設定 → AWS Network Firewall(下書き・対応表・確認用の通信)
 
-Kiro の資料 23・24 枚目「今の firewall から Network Firewall を作れる?」を、このラボで実際にやってみた記録です。
+Kiro の資料 27・28 枚目「今の firewall から Network Firewall を作れる?」を、このラボで実際にやってみた記録です。
 道具は `tools/fw_migrate/ipcom_to_nfw.py`、元にした模擬設定は `tools/fw_migrate/samples/ipcom-mock.conf`、
 出力の見本は `docs/fw-migrate-samples/ipcom-hq/` です。
 
