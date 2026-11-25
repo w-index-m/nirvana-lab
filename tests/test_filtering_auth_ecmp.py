@@ -237,10 +237,18 @@ class TestEcmp:
             await e['ospf'].start(rid, rid, 1, [])
         await e['ospf'].start('R4', 'R4', 1, ['192.168.99.0/24'])
 
-        await asyncio.sleep(5)
-
-        groups = e['rib'].get_ecmp_routes('R1')
-        g = next((x for x in groups if x['network'] == '192.168.99.0'), None)
+        # 2 ホップ先の経路が入るまでの時間は、手元で 2.5〜3.3 秒。CI(カバレッジ計測つきの
+        # 全体テスト)では 5 秒の固定待ちを超えることがあり、同じコミットで成功と失敗が
+        # 分かれた。決め打ちで待たず、経路が入るまで最大 20 秒ポーリングする。
+        g = None
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 20
+        while loop.time() < deadline:
+            groups = e['rib'].get_ecmp_routes('R1')
+            g = next((x for x in groups if x['network'] == '192.168.99.0'), None)
+            if g is not None:
+                break
+            await asyncio.sleep(0.2)
         assert g is not None, "R1がR4のLANへの経路を学習していない"
         assert len(g['next_hops']) >= 1, f"ECMP経路が構築されていない: {g}"
 

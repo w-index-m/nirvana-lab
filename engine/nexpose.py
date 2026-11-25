@@ -567,6 +567,11 @@ class NexposeEngine:
 
         if generation != self._generation:
             return
+        # 最後の装置を評価している最中に stop を受けた場合、ループは自然に終わるので stopped が立たない。
+        # 呼び出し側にはもう stopped と返しているので、ここでも stop を見て finished で上書きしない
+        # (CI の負荷が高いと stop が最後の装置の評価中に届き、stopped → finished に戻っていた)。
+        if ctl['stop'].is_set():
+            stopped = True
         scan = self.scans.get(scan_id)
         site = self.sites.get(sid)
         if scan is None:

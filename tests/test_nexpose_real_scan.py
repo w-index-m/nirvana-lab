@@ -928,10 +928,17 @@ def test_async_scan_can_really_be_stopped(two_device_site):
     scan = _req('GET', f'/api/3/scans/{scan_id}')
     if scan['status'] == 'finished':
         pytest.skip('スキャンがstopより先に終わってしまった（環境依存）')
+    done_at_stop = scan['assets']               # stop を受けた時点で評価し終えた台数
 
-    final = _wait_for_scan_status(scan_id, {'stopped'}, timeout=10)
-    assert final['status'] == 'stopped', 'stopしても止まらなかった'
-    assert final['assets'] < 2                  # 2台目はもう評価していない
+    # 状態が stopped のまま、評価中だった装置の分が反映されるまで待つ
+    deadline = time.time() + 10
+    final = _req('GET', f'/api/3/scans/{scan_id}')
+    while time.time() < deadline and final['status'] == 'stopped' and final.get('duration') is None:
+        time.sleep(0.2)
+        final = _req('GET', f'/api/3/scans/{scan_id}')
+    assert final['status'] == 'stopped', 'stopしても止まらなかった(最後に finished で上書きされた)'
+    # 装置単位の粒度なので、stop の時点で評価中だった1台は終わってよいが、その次へは進まない
+    assert final['assets'] <= done_at_stop + 1, 'stop のあとも次の装置へ進んだ'
     assert final['endTime'] is not None
 
 

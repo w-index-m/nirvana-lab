@@ -303,6 +303,20 @@ Kiro は実際には動かしていない。依頼文は公式の使い方(Spec�
 CI/CD が無いときは `terraform plan -out=tfplan` → 人が差分を読む → `terraform apply tfplan`。
 Kiro に頼めば aws-cli の手順書(3 つ目)も書けるが、それは IaC ではない。どのやり方でも aws-cli は「確かめる」ために使うのが基本。
 
+### AWS を変える方法: 直接か IaC か(Kiro の資料 25 枚目)
+
+| 種類 | 方法 | PR → CI/CD → 人の承認に乗るか | 反映する命令・使いどころ |
+|---|---|---|---|
+| 直接変える | AWS の MCP サーバー経由の API、Cloud Control API、SDK(boto3 など)、aws-cli | 乗らない(実行した時点で変わる) | 本番は読み取り(describe)だけにする |
+| IaC | Terraform | 乗る | `terraform plan` → `terraform apply` |
+| IaC | CloudFormation | 乗る | `aws cloudformation deploy`、または変更セット(`create-change-set` → `execute-change-set`)。ここだけ反映の命令に aws-cli を使う |
+| IaC | AWS CDK | 乗る | `cdk diff` → `cdk deploy`(中身は CloudFormation) |
+
+「aws-cli で IaC を書く」ではない。IaC はコードで、aws-cli は作業前後の確認に使う(CloudFormation の反映だけは例外)。
+
+正しい流れ: Kiro が IaC を書き、差分(plan・変更セット)を出して PR → CI が検査 → 人が差分を読んで承認 →
+CI/CD が反映(`terraform apply` / `cdk deploy` / 変更セットの実行)→ aws-cli の describe で確かめる。
+
 ## 設定の正しさは、別の AI に確かめさせればよいか
 
 良い方法。ただし人の承認の代わりではなく、確認を一段増やすもの。次の 4 段を重ねる。
@@ -366,7 +380,7 @@ Kiro に作らせるもの:
 3. IaC と plan を作らせ、機械の検査・別の AI で確かめて人が承認 → 4. 検証環境で通るべき通信・止まるべき通信を全部試す →
 5. できればしばらく今の機器と並行して動かし、ログを比べてから切り替える。
 
-**ラボで試した結果**(Kiro の資料 29 枚目、詳細は `docs/fw-migrate-ipcom-to-nfw.md`): 模擬 IPCOM の設定(ルール 6 本)を `tools/fw_migrate/ipcom_to_nfw.py` で変換し、
+**ラボで試した結果**(Kiro の資料 30 枚目、詳細は `docs/fw-migrate-ipcom-to-nfw.md`): 模擬 IPCOM の設定(ルール 6 本)を `tools/fw_migrate/ipcom_to_nfw.py` で変換し、
 新しいルール 8 本(移した 3 / 要確認 3)、API の型定義(botocore)で形を確認、機密 3 行は値を出さない。確認用の通信 21 本で元の機器と新しいルールの判定を比べると 1 本違った:
 LAN → 外の 22/tcp は、元の機器では許可、新しいルールでは WAN 側の ssh-deny(送信元 any)が先に当たって止まる(インタフェースの区別が消えたため)。
 IPCOM の構文は模擬で、本物の AWS には入れていない。
