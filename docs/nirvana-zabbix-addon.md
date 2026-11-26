@@ -52,6 +52,23 @@ Zabbix は syslog を直接受けないので、ネットワーク機器の sysl
 
    常に動かすなら `./install.sh --service`(systemd)。画面は `http://<このホスト>:8090/`。
 
+## 設定画面(`start-nirvana-gnmi.bat`)で起動している場合
+
+設定画面は「開始」のたびに `~/.nirvana-gnmi/nirvana.yaml` を書き直すので、手で足した Zabbix の設定は消える。
+代わりに `~/.nirvana-gnmi/nirvana.env`(Windows は `C:\Users\<ユーザー名>\.nirvana-gnmi\nirvana.env`)に書く:
+
+```
+ZABBIX_TOKEN=<Zabbix で作った API トークン>
+# ZABBIX_URL=http://127.0.0.1:8080/api_jsonrpc.php   ← 既定(WSL の docker の Zabbix)。違う場所なら書く
+```
+
+「開始」を押し直すと `sources.zabbix` が入る。設定画面の装置名(SW1 等)は Zabbix のホスト名と違うので、
+装置は**管理 IP**(Zabbix のホストの SNMP インタフェースの IP)で結び付ける。流量はヴァルハラ(Prometheus)が
+優先で、Zabbix からは問題(警報)・IF の状態・ログが足される。
+
+WSL に Zabbix を立てる例(docker compose、PostgreSQL)は、Ubuntu の版に左右されない。Ubuntu 26.04 では
+Zabbix 公式の Ubuntu 24.04 用パッケージが依存(libmysqlclient21 等)で入らなかった。
+
 ## 本物の Zabbix 7.0 での確認(2026-11-26)
 
 構成(すべてこのサンドボックス内):

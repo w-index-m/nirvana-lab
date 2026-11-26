@@ -216,18 +216,34 @@ class Zabbix:
         if not self.token and self.user:
             self.token = self.call('user.login', {'username': self.user, 'password': self.password}, auth=False)
 
-    def hosts(self, names):
-        """{host名: {'hostid', 'available': True/False/None}}(SNMP/エージェントの到達性)"""
+    def hosts(self, names, ips=()):
+        """{host名 または IP: {'hostid', 'available': True/False/None}}(SNMP/エージェントの到達性)。
+        names(Zabbix のホスト名)で引き、見つからない装置は ips(管理 IP)をホストのインタフェースの IP で引く
+        (このときのキーは IP)"""
         self.ensure_auth()
-        rows = self.call('host.get', {'output': ['hostid', 'host', 'name'], 'filter': {'host': list(names)},
-                                      'selectInterfaces': ['available', 'type']})
+        sel = {'output': ['hostid', 'host', 'name'], 'selectInterfaces': ['available', 'type', 'ip']}
+        rows = self.call('host.get', {**sel, 'filter': {'host': list(names)}}) if names else []
         out = {}
         for h in rows:
-            av = [int(i.get('available', 0)) for i in h.get('interfaces', [])]
-            # 1=応答あり 2=応答なし 0=不明
-            out[h['host']] = {'hostid': h['hostid'],
-                              'available': True if 1 in av else False if av and all(a == 2 for a in av) else None}
+            out[h['host']] = self._avail(h)
+        got_ips = {i.get('ip') for h in rows for i in h.get('interfaces', [])}
+        want = [ip for ip in ips if ip and ip not in got_ips]
+        if want:
+            ids = {}
+            for i in self.call('hostinterface.get', {'output': ['hostid', 'ip'], 'filter': {'ip': want}}):
+                ids.setdefault(i['hostid'], i['ip'])
+            if ids:
+                for h in self.call('host.get', {**sel, 'hostids': list(ids)}):
+                    if h['hostid'] not in {v['hostid'] for v in out.values()}:
+                        out[ids[h['hostid']]] = self._avail(h)
         return out
+
+    @staticmethod
+    def _avail(h):
+        av = [int(i.get('available', 0)) for i in h.get('interfaces', [])]
+        # 1=応答あり 2=応答なし 0=不明
+        return {'hostid': h['hostid'],
+                'available': True if 1 in av else False if av and all(a == 2 for a in av) else None}
 
     def interface_items(self, hostids):
         """{hostid: {if: {'in_bps','out_bps','oper'}}}"""

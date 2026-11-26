@@ -223,7 +223,9 @@ class Collector:
 
     def _zabbix_hosts(self):
         names = [d.get('zabbix_host') or d['hostname'] for d in self.devs.values()]
-        self._zbx_hosts = self.zbx.hosts(names)
+        # 名前が Zabbix のホスト名と合わない装置は、管理 IP で引く(設定画面が作る SW1 等の名前でもつながる)
+        ips = [d.get('mgmt_ip') for d in self.devs.values() if d.get('mgmt_ip') and d.get('snmp', True) is not False]
+        self._zbx_hosts = self.zbx.hosts(names, ips)
         return self._zbx_hosts
 
     # ── 1回分の状態(短時間キャッシュ) ──

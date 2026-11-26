@@ -63,7 +63,13 @@ class FakeZabbix:
                 rows = [h for h in rows if h['host'] in p['filter']['host']]
             if 'groupids' in p:
                 rows = [h for h in rows if set(h.get('groups', [])) & set(p['groupids'])]
+            if 'hostids' in p:
+                rows = [h for h in rows if h['hostid'] in p['hostids']]
             return rows
+        if m == 'hostinterface.get':
+            ips = p['filter']['ip']
+            return [{'hostid': h['hostid'], 'ip': i['ip']} for h in self.hosts for i in h.get('interfaces', [])
+                    if i.get('ip') in ips]
         if m == 'item.get':
             rows = [i for i in self.items if i['hostid'] in p.get('hostids', [])]
             f = p.get('filter') or {}
@@ -270,3 +276,33 @@ def test_secret_macro_community_is_reported(zbx):
     inst.zabbix_inventory(S.Zabbix(zbx.url, token='x'), walk=walk, notes=notes)
     assert ('10.9.0.2', 'plain-ro') in seen and not any(h == '10.9.0.1' for h, _ in seen)
     assert any('community が分かりません' in n for n in notes)
+
+
+def test_devices_are_matched_to_zabbix_hosts_by_management_ip(zbx):
+    """設定画面が作る装置名(SW1)は Zabbix のホスト名(3650 の実名)と違う → 管理 IP で結び付ける"""
+    now = int(time.time())
+    zbx.hosts = [{'hostid': '7', 'host': 'C3650-CORE', 'name': 'C3650-CORE', 'interfaces': [_snmp_if('10.9.0.1')]}]
+    zbx.items = [{'hostid': '7', 'itemid': '71', 'name': 'Interface Gi0/0/0(): Bits sent', 'key_': 'x', 'value_type': '3',
+                  'lastvalue': '3000000', 'lastclock': str(now), 'status': '0'},
+                 {'hostid': '7', 'itemid': '72', 'name': 'Interface Gi0/0/0(): Operational status', 'key_': 'y',
+                  'value_type': '3', 'lastvalue': '2', 'lastclock': str(now), 'status': '0'}]
+    cfg = _cfg({'zabbix': {'url': zbx.url, 'token': 'x'}})
+    cfg['devices'][0]['hostname'] = 'SW1'
+    app = sa_server.create_app(cfg, start_collector=False)
+    hosts = app.state.collector._zabbix_hosts()
+    assert hosts == {'10.9.0.1': {'hostid': '7', 'available': True}}
+    ln = TestClient(app).get('/api/traffic/links').json()['links'][0]
+    assert ln['source'] == 'zabbix' and ln['ab_bps'] == 3_000_000 and ln['evidence']['POLL'] == 'down'
+
+
+def test_setup_gui_adds_zabbix_only_when_token_is_in_secrets():
+    sys.path.insert(0, os.path.join(ROOT, 'cyber-view-standalone'))
+    import setup_gui as G
+    form = G.parse_form({'target': '192.168.1.1', 'password': 'x', 'community': ''})
+    assert 'zabbix' not in G.nirvana_config(form, {})
+    text = G.nirvana_config(form, {'ZABBIX_TOKEN': 'secret-value'})
+    assert 'zabbix:' in text and 'token: ${ZABBIX_TOKEN}' in text and 'secret-value' not in text
+    assert 'url: http://127.0.0.1:8080/api_jsonrpc.php' in text
+    assert 'url: http://zbx:9/api' in G.nirvana_config(form, {'ZABBIX_TOKEN': 't', 'ZABBIX_URL': 'http://zbx:9/api'})
+    import yaml
+    sa_config.validate(yaml.safe_load(text))

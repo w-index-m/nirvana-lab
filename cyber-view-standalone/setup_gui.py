@@ -169,8 +169,12 @@ def snmp_check(form, timeout=2.0):
     return ok > 0, '\n'.join(out)
 
 
-def nirvana_config(form):
-    """装置ごとに、選んだポートの先に「相手」を置いてリンクにする(相手は SNMP を持たない)"""
+ZABBIX_URL = 'http://127.0.0.1:8080/api_jsonrpc.php'     # WSL の docker の Zabbix(Windows から localhost で届く)
+
+
+def nirvana_config(form, secrets=None):
+    """装置ごとに、選んだポートの先に「相手」を置いてリンクにする(相手は SNMP を持たない)。
+    secrets(nirvana.env)に ZABBIX_TOKEN があれば Zabbix も読む(装置は管理 IP で Zabbix のホストと結び付く)"""
     lines = ['title: gNMI', 'poll_interval: 10', 'devices:']
     links = []
     for n, t in enumerate(form['targets'], 1):
@@ -203,6 +207,10 @@ def nirvana_config(form):
         # SNMP で直接: 経路表・CPU(60秒)と流量・IF 状態(10秒)。community は設定に書かず環境変数で渡す
         lines += ['  snmp:', '    community: ${NIRVANA_SNMP_COMMUNITY}', '    interval: 30',
                   '    traffic: {interval: 10}']
+    secrets = secrets or {}
+    if secrets.get('ZABBIX_TOKEN'):
+        # Zabbix の問題(警報)・IF の状態・ログ。流量はヴァルハラ(Prometheus)が優先。トークンは設定に書かない
+        lines += ['  zabbix:', f'    url: {secrets.get("ZABBIX_URL") or ZABBIX_URL}', '    token: ${ZABBIX_TOKEN}']
     return '\n'.join(lines) + '\n'
 
 
@@ -248,7 +256,7 @@ def load_secrets(path=None):
 def start_nirvana(form):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     cfg = STATE_DIR / 'nirvana.yaml'
-    cfg.write_text(nirvana_config(form), encoding='utf-8')
+    cfg.write_text(nirvana_config(form, load_secrets()), encoding='utf-8')
     old = _nirvana['proc']
     if old and old.poll() is None:
         old.terminate()
