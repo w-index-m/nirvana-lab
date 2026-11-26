@@ -201,3 +201,30 @@ def test_secrets_file_is_passed_to_nirvana(tmp_path, monkeypatch):
     monkeypatch.setattr(G, 'STATE_DIR', tmp_path)
     assert G.load_secrets() == {'CLOUDFLARE_API_TOKEN': 'abc123', 'NETLAB_GEOIP_FETCH': '1'}
     assert G.load_secrets(tmp_path / 'none.env') == {}
+
+
+def test_nirvana_starts_even_when_the_device_sends_no_values(monkeypatch, tmp_path):
+    """装置が止まっている(gnmic に値が来ない)ときも、道具が動いていればニルヴァーナは起動する"""
+    monkeypatch.setattr(G, 'STATE_DIR', tmp_path)
+    calls, checked = [], []
+    monkeypatch.setattr(G, 'start_nirvana', lambda form: (calls.append(form['community']), (True, 'started'))[1])
+    monkeypatch.setattr(G, 'snmp_check', lambda form: (checked.append(1), (False, 'SNMP NG'))[1])
+    monkeypatch.setattr(G, 'run_quickstart', lambda a, f=None: ('no_values', 'NG gnmic が装置から値を受け取れていません'))
+    r = G.do_up({'target': '192.168.1.1', 'password': 'pw', 'community': 'public'})
+    assert r['ok'] is True and r['nirvana_url'].endswith(':8091/?view=links')
+    assert '装置からまだ値が届いていません' in r['log'] and 'NG gnmic' in r['log']
+    assert calls == ['public'] and checked == []          # SNMP は装置が止まっているだけかもしれないので外さない
+
+
+def test_quickstart_returns_3_when_only_the_values_are_missing():
+    text = open(os.path.join(os.path.dirname(G.__file__), 'gnmi-quickstart.sh'), encoding='utf-8').read()
+    assert 'else exit 3; fi ;;' in text and G.NO_VALUES_YET == 3
+
+
+def test_run_quickstart_maps_exit_3(monkeypatch):
+    class P:
+        returncode, stdout, stderr = 3, b'NG', b''
+    monkeypatch.setattr(G.subprocess, 'run', lambda *a, **k: P)
+    assert G.run_quickstart('up', G.parse_form({'target': '192.168.1.1', 'password': 'x'}))[0] == 'no_values'
+    P.returncode = 1
+    assert G.run_quickstart('up', G.parse_form({'target': '192.168.1.1', 'password': 'x'}))[0] is False

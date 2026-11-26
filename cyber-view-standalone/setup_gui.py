@@ -35,7 +35,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 QUICKSTART = HERE / 'gnmi-quickstart.sh'
 STATE_DIR = Path(os.environ.get('NIRVANA_SETUP_DIR', Path.home() / '.nirvana-gnmi'))
-GUI_VERSION = '13'
+GUI_VERSION = '14'
 NETFLOW_PORT = 2055
 SFLOW_PORT = 6343
 SYSLOG_PORT = int(os.environ.get('NIRVANA_SYSLOG_PORT', '514'))
@@ -114,12 +114,18 @@ def quickstart_cmd(action, form=None):
     return ['bash', str(QUICKSTART)] + args, None, env
 
 
+NO_VALUES_YET = 3      # gnmi-quickstart.sh up: 道具は起動したが、装置からまだ値が来ない
+
+
 def run_quickstart(action, form=None, timeout=300):
+    """(結果, 出力)。結果は True / False / 'no_values'(道具は動いているが装置から値が来ない)"""
     argv, stdin, extra = quickstart_cmd(action, form)
     env = dict(os.environ, **extra)
     try:
         p = subprocess.run(argv, input=stdin, capture_output=True, timeout=timeout, env=env)
         out = ANSI.sub('', (p.stdout or b'').decode('utf-8', 'replace') + (p.stderr or b'').decode('utf-8', 'replace'))
+        if p.returncode == NO_VALUES_YET:
+            return 'no_values', out
         return p.returncode == 0, out
     except FileNotFoundError:
         return False, ('WSL が見つかりません。PowerShell で「wsl --install」を実行して Ubuntu を入れてください'
@@ -454,16 +460,22 @@ def do_up(body):
              'loki': form['loki']}),
             encoding='utf-8')   # パスワードは保存しない
         ok, log = run_quickstart('up', form)
+        no_values = ok == 'no_values'
         if not ok:
             if 'すでに使われています' in log:
                 log += '\n\n→「手で起動したものを止める」を押してから、もう一度「開始」を押してください'
             return {'ok': False, 'log': log}
-        if form.get('community'):
+        if form.get('community') and not no_values:
             snmp_ok, text = snmp_check(form)
             log += '\n' + text
             if not snmp_ok:
                 form = dict(form, community='')
+        # 装置から値が来なくてもニルヴァーナは起動する(装置が動き出せば、そのまま値が入る。
+        # SNMP も装置が止まっているだけかもしれないので外さない)
         ok2, log2 = start_nirvana(form)
+        if ok2 and no_values:
+            log2 = ('注意: 装置からまだ値が届いていません(装置が止まっている・IP やパスワードの違い・装置の gNMI の設定)。\n'
+                    '      ニルヴァーナは起動しました。装置が動き出せば、そのまま値が入ります。\n' + log2)
         if ok2 and form.get('loki'):
             log2 += (f'\nGrafana: http://localhost:{GRAFANA_PORT}/d/nirvana-gnmi(見るだけならログイン不要。編集は admin / admin)'
                      f'\nsyslog はニルヴァーナが受け、その写しを Loki(:{LOKI_PORT})に送ります')
