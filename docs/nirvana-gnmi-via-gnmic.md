@@ -183,6 +183,12 @@ SYSLOG 経路・AI ログ解析がそのまま使える。RFC 3164 / 5424 の見
 (util-linux の `logger` の RFC 3164 / 5424)と Cisco 形式の行で、`/api/traffic/logs` の取得元 `syslog`、syslog 観点「異常」、
 リンクの SYSLOG 経路 `down` を確かめた。スイッチ側は `logging host <PC の IP>`(`catalyst-3650.example.txt` の 4)。
 
+版 14: **装置から値が来なくてもニルヴァーナを起動する**。以前は gnmic に値が届かない(装置が止まっている・IP や
+パスワードの違い)と「うまくいきませんでした」で止まり、ニルヴァーナも起動しなかった。`gnmi-quickstart.sh up` は
+道具が起動できて値だけ来ないときを exit 3 で返し、設定画面は注意の行を出してニルヴァーナを起動する(装置が動き出せば
+そのまま値が入る。SNMP の直接取得も外さない)。また `nirvana.env` に `ZABBIX_TOKEN` を書くと Zabbix も読む
+(`docs/nirvana-zabbix-addon.md`)。
+
 版 13: **Grafana と Loki も WSL で動かす**(設定画面の「Grafana と Loki も動かす」、既定で入。`gnmi-quickstart.sh up --loki`)。
 
 ```
