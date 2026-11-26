@@ -67,10 +67,15 @@ sources:
     device_labels: [device_id, host, hostname, instance]
 
   # Zabbix: API トークン(または user/password)。「Network interfaces by SNMP」系テンプレートの
-  # Interface ...: Bits received / Bits sent / Operational status と、未解決の問題を読む
+  # Interface ...: Bits received / Bits sent / Operational status と、未解決の問題を読む。
+  # ログも読む: 機器のホストのログ型アイテム・SNMP トラップのアイテム(snmptrap[...])と、log_hosts に書いた
+  # ホスト(syslog サーバーにエージェントを入れて log[] で読んでいる等)のログ型アイテム。log_hosts の行は
+  # 行頭の「時刻 送信元」と行の中の IP・装置名で装置を決める。logs: false でログを読まない
   # zabbix:
   #   url: http://zabbix.example.local/api_jsonrpc.php
   #   token: ${ZABBIX_TOKEN}
+  #   log_hosts: [syslog-srv]
+  #   # logs: false
 
   # MRTG(cfgmaker が作った mrtg.cfg を読み、Target の装置・IF とこの設定の devices を自動で対応づける)。
   # LogFormat が rrdtool なら .rrd を rrdtool fetch で読む(rrdtool コマンドが要る)

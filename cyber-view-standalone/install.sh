@@ -8,6 +8,8 @@
 #
 # 探すもの: Prometheus(+snmp_exporter)・Loki・Zabbix・MRTG・Cacti・Ollama・AI の鍵。場所を指定するなら
 #   --prometheus URL --loki URL --zabbix URL --mrtg-cfg PATH --cacti-rra DIR --cacti-db-config PATH --ollama URL
+# Zabbix だけの環境: ZABBIX_TOKEN を渡すと監視中のネットワーク機器と IF を API で読んで装置にする
+#   (--zabbix-group NAME で絞る。IF の IP は SNMP で補う: --snmp-community / --no-snmp-probe)
 # 既存の config.yaml は上書きしない(--force で上書き)。秘密(トークン・鍵)はファイルに書かず環境変数で渡す:
 #   ZABBIX_TOKEN / ANTHROPIC_API_KEY(Claude)/ GROQ_API_KEY・OPENAI_API_KEY・NIRVANA_AI_KEY(OpenAI 互換)/ OLLAMA_URL
 set -euo pipefail
@@ -22,8 +24,9 @@ while [ $# -gt 0 ]; do
     --force) FORCE=(--force) ;;
     --port) PORT="$2"; shift ;;
     --config) CONFIG="$2"; shift ;;
-    --prometheus|--loki|--zabbix|--mrtg-cfg|--cacti-rra|--cacti-db-config|--ollama|--title) ARGS+=("$1" "$2"); shift ;;
-    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    --prometheus|--loki|--zabbix|--zabbix-group|--snmp-community|--mrtg-cfg|--cacti-rra|--cacti-db-config|--ollama|--title) ARGS+=("$1" "$2"); shift ;;
+    --no-snmp-probe) ARGS+=("$1") ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) echo "不明な引数: $1" >&2; exit 2 ;;
   esac
   shift

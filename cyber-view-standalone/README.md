@@ -11,7 +11,7 @@ network-lab-emulator の `/cyber-view`(NIRVANA 改風の 3D 監視画面)を、*
 |---|---|---|
 | Prometheus + snmp_exporter | `rate(ifHCIn/OutOctets)`・`ifOperStatus`・`up` | リンクの流量と流れのアニメ、LINK DOWN の検知経路「POLL」、「NO RESPONSE 消失」 |
 | Loki(syslog) | ログ行 | 装置の上に浮かぶログ、LINK DOWN の検知経路「SYSLOG」、error 以上の警報、フラップの警告(注) |
-| Zabbix(API) | `Interface …: Bits received / Bits sent / Operational status`、未解決の問題、ホストの到達性 | 流量(Prometheus が無い場合)、「POLL」、Zabbix の問題を警報として表示 |
+| Zabbix(API) | `Interface …: Bits received / Bits sent / Operational status`、未解決の問題、ホストの到達性、ログ型アイテム・SNMP トラップのアイテム(機器のホストと `log_hosts`) | 流量(Prometheus が無い場合)、「POLL」、Zabbix の問題を警報として表示、ログ(「SYSLOG」・error 以上の警報) |
 | SNMP trap(任意) | linkDown / linkUp | LINK DOWN の検知経路「TRAP」 |
 
 装置とつながり(トポロジ)は設定ファイルに手書きする。
@@ -76,6 +76,23 @@ ZABBIX_TOKEN=xxxx docker compose up -d --build
 | 応答なし(消失) | ○(up=0) | ○(ホストの SNMP 到達性) | — |
 | 警報・警告 | link_down | link_down + Zabbix の問題 | + error 以上のログ、フラップ |
 
+### 既存の Zabbix に足す
+
+Zabbix しか無い環境でも、インストーラーが API で装置とつながりの下書きを作る:
+
+```bash
+ZABBIX_TOKEN=xxxx ./install.sh --zabbix http://<Zabbix>/api_jsonrpc.php [--zabbix-group Network]
+```
+
+- 「Interface …: Bits received」のアイテムがあるホスト(= ネットワーク機器)を装置にする。種類はテンプレート名から推定
+- IF の IP は Zabbix に無いので、SNMP v1/v2c のホストには ipAddrTable を問い合わせて補い、同じ /30・/31 から
+  つながりを推定する。community はホストの SNMP インタフェース → ホストのマクロ → グローバルマクロの順
+  (秘密のマクロは読めないので `--snmp-community` で渡す。問い合わせない場合は `--no-snmp-probe`)
+- ログ型アイテムを持つ機器以外のホスト(syslog サーバー等)は `sources.zabbix.log_hosts` に入れる
+- API トークンは読み取りだけの権限で足りる(ニルヴァーナは Zabbix に何も書かない)
+
+詳しい手順と本物の Zabbix 7.0 での確認記録: リポジトリの `docs/nirvana-zabbix-addon.md`
+
 ### Zabbix で気をつけること
 
 - テンプレートは「Network interfaces by SNMP」系(`Cisco IOS by SNMP` など)のアイテム名を前提にしている。
@@ -84,6 +101,8 @@ ZABBIX_TOKEN=xxxx docker compose up -d --build
   **復旧後も Zabbix 側は次の自動検出(テンプレート既定 1 時間)まで無効のまま**なので、早く戻したい場合は
   Zabbix で検出ルールを「今すぐ実行」するか、検出間隔を短くする。
 - 流量は Zabbix の取得間隔(Cisco テンプレートは 1 分ごとの SNMP walk)で更新される。
+- 落ちたリンクの流量は、Zabbix の最後の値が残って見えることがある(リンクは LINK DOWN として表示される)。
+- ログは poll_interval(既定 10 秒)ごとに `history.get` で読む。ログのアイテムの一覧は 5 分ごとに引き直す。
 
 ### ヴァルハラ(Prometheus)からの再生・予測・OSPF・警報
 

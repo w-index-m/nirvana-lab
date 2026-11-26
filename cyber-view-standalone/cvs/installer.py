@@ -7,7 +7,11 @@
 探すもの(引数で場所を指定すれば、そこだけを見る):
   - Prometheus(既定 http://127.0.0.1:9090): snmp_exporter の scrape job と、その対象(装置)・インタフェース
   - Loki(既定 http://127.0.0.1:3100)
-  - Zabbix(/etc/zabbix/web/zabbix.conf.php があるか、--zabbix で URL)。トークンは ${ZABBIX_TOKEN} のまま
+  - Zabbix(/etc/zabbix/web/zabbix.conf.php があるか、--zabbix で URL)。トークンは ${ZABBIX_TOKEN} のまま。
+    環境変数 ZABBIX_TOKEN(または ZABBIX_USER / ZABBIX_PASSWORD)があれば API で監視中のホストと
+    IF(「Interface …: Bits received」のアイテム)を読み、装置の下書きにする(--zabbix-group でホストグループを絞る)。
+    IF の IP は Zabbix に無いので、SNMP v1/v2c のホストは ipAddrTable を読んで補う(つながりの推定に使う。
+    community はホストの SNMP インタフェースの設定・マクロから。--snmp-community で指定、--no-snmp-probe で読まない)
   - MRTG(/etc/mrtg.cfg・/etc/mrtg/*.cfg): Target から装置・インタフェース・IP
   - Cacti(/var/lib/cacti/rra 等と、DB の接続情報 /etc/cacti/db.php 等): RRD と装置・インタフェースの対応は Cacti の DB から自動で読む
     ので、targets は下書き(コメント)として出す
@@ -49,8 +53,138 @@ def _prom(url, get, q):
     return d['data']['result'] if isinstance(d, dict) and d.get('status') == 'success' else []
 
 
+# Zabbix のテンプレート名 → この画面の装置の種類(上から順に最初に当たったもの)
+ZBX_TYPE_HINTS = (('nexus', 'nexus'), ('catalyst', 'catalyst'), ('asa', 'asa'), ('cisco', 'cisco'),
+                  ('arista', 'arista'), ('juniper', 'juniper'), ('junos', 'juniper'), ('fortigate', 'fortigate'),
+                  ('yamaha', 'yamaha'), ('apresia', 'apresia'))
+_OID_IFNAME, _OID_IFDESCR = '1.3.6.1.2.1.31.1.1.1.1', '1.3.6.1.2.1.2.2.1.2'
+_OID_IPIFINDEX, _OID_IPMASK = '1.3.6.1.2.1.4.20.1.2', '1.3.6.1.2.1.4.20.1.3'
+
+
+def zbx_type(templates):
+    names = ' '.join(t.get('name', '') for t in templates or []).lower()
+    return next((v for k, v in ZBX_TYPE_HINTS if k in names), 'cisco')
+
+
+def snmp_if_ips(host, community, walk=None, timeout=1.5):
+    """{IF 名: (ip, prefix)}(ipAddrTable と ifName/ifDescr。SNMP v1/v2c)"""
+    if walk is None:
+        from .snmp_client import walk
+    kw = {'timeout': timeout, 'retries': 0}
+    names = {}
+    for root in (_OID_IFDESCR, _OID_IFNAME):            # ifName があれば ifName を優先(Zabbix のアイテム名と同じ)
+        for o, v in walk(host, community, root, **kw):
+            names[o.rsplit('.', 1)[1]] = v.decode('utf-8', 'replace') if isinstance(v, bytes) else str(v)
+    masks = {o[len(_OID_IPMASK) + 1:]: v for o, v in walk(host, community, _OID_IPMASK, **kw)}
+    out = {}
+    for o, idx in walk(host, community, _OID_IPIFINDEX, **kw):
+        ip = o[len(_OID_IPIFINDEX) + 1:]
+        if ip.startswith('127.') or str(idx) not in names:
+            continue
+        m = masks.get(ip)
+        try:
+            plen = ipaddress.IPv4Network(f'0.0.0.0/{m}').prefixlen if m else 24
+        except ValueError:
+            plen = 24
+        out[names[str(idx)]] = (ip, plen)
+    return out
+
+
+def _zbx_community(iface, macros):
+    c = str(((iface or {}).get('details') or {}).get('community') or '')
+    for _ in range(3):                                   # マクロ({$SNMP_COMMUNITY} 等)を引く。秘密のマクロは値が返らない
+        if not (c.startswith('{$') and c.endswith('}')):
+            break
+        c = macros.get(c, '')
+    return c if c and not c.startswith('{$') else None
+
+
+def zabbix_inventory(z, group=None, snmp_community=None, probe=True, walk=None, notes=None, meta=None):
+    """Zabbix の API から {ホスト名: {hostname, zabbix_host, type, mgmt_ip, ifs: {key: {name, ip?, prefix?}}}}。
+    「Interface …: Bits received」のアイテムがあるホスト(= ネットワーク機器)だけを返す"""
+    notes = notes if notes is not None else []
+    meta = meta if meta is not None else {}
+    z.ensure_auth()
+    params = {'output': ['hostid', 'host', 'name'], 'filter': {'status': 0},
+              'selectInterfaces': ['ip', 'dns', 'useip', 'type', 'main', 'details'],
+              'selectParentTemplates': ['name']}
+    if group:
+        gids = [g['groupid'] for g in z.call('hostgroup.get', {'output': ['groupid'], 'filter': {'name': [group]}})]
+        if not gids:
+            notes.append(f'Zabbix: ホストグループ「{group}」が見つかりません')
+            return {}
+        params['groupids'] = gids
+    hosts = z.call('host.get', params)
+    if not hosts:
+        return {}
+    ids = [h['hostid'] for h in hosts]
+    from .sources import _ZBX_IF_ITEM
+    ifs = {}
+    for it in z.call('item.get', {'output': ['hostid', 'name'], 'hostids': ids, 'search': {'name': 'Interface'},
+                                  'filter': {'status': 0}}):
+        m = _ZBX_IF_ITEM.match(it.get('name', '').strip())
+        if m and m.group(2) == 'Bits received':
+            ifs.setdefault(it['hostid'], {}).setdefault(norm_if(m.group(1)), {'name': m.group(1)})
+    macros = {}
+    if probe and not snmp_community:
+        try:
+            for mc in z.call('usermacro.get', {'output': ['macro', 'value'], 'globalmacro': True}):
+                macros.setdefault(mc['macro'], mc.get('value', ''))
+        except Exception:  # noqa: BLE001 - 読めなくても装置の下書きは作る
+            pass
+    out, skipped = {}, 0
+    for h in hosts:
+        if h['hostid'] not in ifs:
+            skipped += 1                                  # サーバー等(IF の流量アイテムが無い)
+            continue
+        snmp_if = next((i for i in h.get('interfaces', []) if str(i.get('type')) == '2' and str(i.get('main')) == '1'),
+                       None) or next((i for i in h.get('interfaces', []) if str(i.get('type')) == '2'), None)
+        main = snmp_if or next((i for i in h.get('interfaces', []) if str(i.get('main')) == '1'), None)
+        ip = (main or {}).get('ip') or None
+        d = {'hostname': h.get('name') or h['host'], 'zabbix_host': h['host'], 'type': zbx_type(h.get('parentTemplates')),
+             'mgmt_ip': ip, 'ifs': ifs[h['hostid']]}
+        if probe and snmp_if and ip:
+            ver = str((snmp_if.get('details') or {}).get('version') or '2')
+            hmac = {**macros}
+            if not snmp_community and '{$' in str((snmp_if.get('details') or {}).get('community', '')):
+                try:
+                    for mc in z.call('usermacro.get', {'output': ['macro', 'value'], 'hostids': [h['hostid']]}):
+                        hmac[mc['macro']] = mc.get('value', '')
+                except Exception:  # noqa: BLE001
+                    pass
+            comm = snmp_community or _zbx_community(snmp_if, hmac)
+            if ver == '3':
+                notes.append(f"{d['hostname']}: SNMPv3 のため IF の IP は読みません(links は手で足す)")
+            elif not comm:
+                notes.append(f"{d['hostname']}: SNMP の community が分かりません(秘密のマクロ等)。--snmp-community で指定できます")
+            else:
+                try:
+                    for name, (ifip, plen) in snmp_if_ips(ip, comm, walk=walk).items():
+                        ent = d['ifs'].setdefault(norm_if(name), {'name': name})
+                        ent['ip'], ent['prefix'] = ifip, plen
+                except Exception as e:  # noqa: BLE001
+                    notes.append(f"{d['hostname']}({ip}): SNMP で IF の IP を読めません({e})")
+        out[h['host']] = d
+    if skipped:
+        notes.append(f'Zabbix: IF の流量アイテム(Interface …: Bits received)が無いホスト {skipped} 台は装置に入れていません')
+    # 機器ではないが、ログ型のアイテムを持つホスト(syslog サーバー等)→ sources.zabbix.log_hosts の候補
+    others = [h for h in hosts if h['hostid'] not in ifs]
+    if others:
+        try:
+            lh = {it['hostid'] for it in z.call('item.get', {'output': ['hostid'], 'hostids': [h['hostid'] for h in others],
+                                                             'filter': {'status': 0, 'value_type': [2]}})}
+            log_hosts = sorted(h['host'] for h in others if h['hostid'] in lh)
+        except Exception:  # noqa: BLE001
+            log_hosts = []
+        if log_hosts:
+            meta['log_hosts'] = log_hosts
+            notes.append('Zabbix: ログのアイテムがあるホスト ' + ', '.join(log_hosts) + ' を sources.zabbix.log_hosts に入れました'
+                         '(行の中の IP・装置名で装置を決める)')
+    return out
+
+
 def detect(prometheus=None, loki=None, zabbix=None, mrtg_cfgs=None, cacti_dirs=None, ollama=None, env=None, get=None,
-           cacti_db_configs=None):
+           cacti_db_configs=None, zabbix_group=None, snmp_community=None, snmp_probe=True, zbx_client=None, walk=None):
     get = get or http_json
     env = env if env is not None else os.environ
     found = {'prometheus': None, 'loki': None, 'zabbix': None, 'mrtg': [], 'cacti': [], 'ollama': None, 'ai': None,
@@ -122,6 +256,32 @@ def detect(prometheus=None, loki=None, zabbix=None, mrtg_cfgs=None, cacti_dirs=N
         z_url = 'http://127.0.0.1/zabbix/api_jsonrpc.php'
     if z_url:
         found['zabbix'] = {'url': z_url}
+        if zbx_client is None and (env.get('ZABBIX_TOKEN') or env.get('ZABBIX_USER')):
+            from .sources import Zabbix
+            zbx_client = Zabbix(z_url, token=env.get('ZABBIX_TOKEN', ''), user=env.get('ZABBIX_USER', ''),
+                                password=env.get('ZABBIX_PASSWORD', ''))
+        if zbx_client is None:
+            found['notes'].append('Zabbix: ZABBIX_TOKEN(または ZABBIX_USER / ZABBIX_PASSWORD)が無いので、'
+                                  'ホストは読みません(装置は手で書く)')
+        else:
+            try:
+                meta = {}
+                inv = zabbix_inventory(zbx_client, group=zabbix_group, snmp_community=snmp_community,
+                                       probe=snmp_probe, walk=walk, notes=found['notes'], meta=meta)
+                found['zabbix']['hosts'] = len(inv)
+                if meta.get('log_hosts'):
+                    found['zabbix']['log_hosts'] = meta['log_hosts']
+                for zd in inv.values():
+                    d = dev(zd['mgmt_ip'] or zd['zabbix_host'], zd['hostname'])
+                    d['mgmt_ip'] = d['mgmt_ip'] or zd['mgmt_ip']
+                    d['type'], d['zabbix_host'] = zd['type'], zd['zabbix_host']
+                    for k, i in zd['ifs'].items():
+                        cur = d['ifs'].setdefault(k, {'name': i['name']})
+                        if i.get('ip') and not cur.get('ip'):
+                            cur['ip'], cur['prefix'] = i['ip'], i.get('prefix', 24)
+                    d['from'].add('zabbix')
+            except Exception as e:  # noqa: BLE001
+                found['notes'].append(f'Zabbix({z_url})の API を読めません: {e}')
 
     # MRTG
     for pat in mrtg_cfgs if mrtg_cfgs is not None else MRTG_CFGS:
@@ -228,8 +388,12 @@ def build_config(found, title='本番ネットワーク'):
         did = re.sub(r'[^a-z0-9]+', '-', (d['hostname'] or key).lower()).strip('-') or f'dev{n}'
         while did in devices:
             did += f'-{n}'
-        ifs = [{'name': i['name'], **({'ip': i['ip'], 'prefix': 24} if i.get('ip') else {})} for i in d['ifs'].values()]
-        devices[did] = {'id': did, 'hostname': d['hostname'], 'type': 'cisco', 'mgmt_ip': d['mgmt_ip'], 'interfaces': ifs}
+        ifs = [{'name': i['name'], **({'ip': i['ip'], 'prefix': i.get('prefix', 24)} if i.get('ip') else {})}
+               for i in d['ifs'].values()]
+        devices[did] = {'id': did, 'hostname': d['hostname'], 'type': d.get('type', 'cisco'), 'mgmt_ip': d['mgmt_ip'],
+                        'interfaces': ifs}
+        if d.get('zabbix_host') and d['zabbix_host'] != d['hostname']:
+            devices[did]['zabbix_host'] = d['zabbix_host']
     cfg = {'title': title, 'poll_interval': 10, 'link_speed_bps': 1_000_000_000,
            'devices': list(devices.values()), 'links': infer_links(devices), 'sources': {}}
     src = cfg['sources']
@@ -243,6 +407,8 @@ def build_config(found, title='本番ネットワーク'):
         src['loki'] = {'url': found['loki']['url'], 'query': '{job=~".+"}'}
     if found['zabbix']:
         src['zabbix'] = {'url': found['zabbix']['url'], 'token': '${ZABBIX_TOKEN}'}
+        if found['zabbix'].get('log_hosts'):
+            src['zabbix']['log_hosts'] = found['zabbix']['log_hosts']
     if found['mrtg']:
         src['mrtg'] = {'cfg': found['mrtg'][0]['cfg']}
     if found['cacti_db']:
@@ -286,7 +452,8 @@ def summary(found):
     p = found['prometheus']
     out.append(f"Prometheus : {p['url'] + ' v' + str(p['version']) + ' job=' + str(p['job']) + (' gnmic=' + str(p['gnmic_job']) if p.get('gnmic_job') else '') if p else 'なし'}")
     out.append(f"Loki       : {found['loki']['url'] if found['loki'] else 'なし'}")
-    out.append(f"Zabbix     : {found['zabbix']['url'] if found['zabbix'] else 'なし'}")
+    z = found['zabbix']
+    out.append(f"Zabbix     : {z['url'] + (' (ネットワーク機器 ' + str(z['hosts']) + ' 台)' if 'hosts' in z else '') if z else 'なし'}")
     out.append(f"MRTG       : {', '.join(m['cfg'] + ' (' + str(m['targets']) + ' 対象)' for m in found['mrtg']) or 'なし'}")
     out.append(f"Cacti      : {', '.join(c['rra_dir'] + ' (' + str(c.get('count', len(c['files']))) + ' RRD)' for c in found['cacti']) or 'なし'}")
     cd = found.get('cacti_db')
@@ -314,8 +481,12 @@ def main(argv=None):
     ap.add_argument('--cacti-rra', action='append')
     ap.add_argument('--cacti-db-config', action='append', help='Cacti の DB 接続情報(db.php / debian.php / include/config.php)')
     ap.add_argument('--ollama')
+    ap.add_argument('--zabbix-group', help='Zabbix のホストグループ名(このグループのホストだけを装置にする)')
+    ap.add_argument('--snmp-community', help='IF の IP を読む SNMP community(省略時は Zabbix のホスト設定・マクロから)')
+    ap.add_argument('--no-snmp-probe', action='store_true', help='装置に SNMP で IF の IP を問い合わせない')
     a = ap.parse_args(argv)
-    found = detect(a.prometheus, a.loki, a.zabbix, a.mrtg_cfg, a.cacti_rra, a.ollama, cacti_db_configs=a.cacti_db_config)
+    found = detect(a.prometheus, a.loki, a.zabbix, a.mrtg_cfg, a.cacti_rra, a.ollama, cacti_db_configs=a.cacti_db_config,
+                   zabbix_group=a.zabbix_group, snmp_community=a.snmp_community, snmp_probe=not a.no_snmp_probe)
     print(summary(found))
     if not a.write:
         return 0

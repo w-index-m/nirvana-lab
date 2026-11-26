@@ -264,6 +264,51 @@ class Zabbix:
                 ent['oper'] = 'up' if int(v) == 1 else 'down' if int(v) in (2, 7) else None
         return out
 
+    # ── ログ(ログ型アイテム・SNMP トラップ) ──
+    # Zabbix の value_type / history の番号: 0=数値(float) 1=文字 2=ログ 3=整数 4=テキスト
+    def log_items(self, hostids):
+        """[{'itemid','hostid','name','key','value_type'}]
+        ログ型のアイテム(エージェントの log[]・logrt[]・eventlog[]、ログ型のトラッパー等)と、
+        SNMP トラップのアイテム(snmptrap[...] / snmptrap.fallback。文字・テキスト型でも拾う)"""
+        if not hostids:
+            return []
+        base = {'output': ['itemid', 'hostid', 'name', 'key_', 'value_type'], 'hostids': list(hostids),
+                'filter': {'status': 0}}
+        rows = self.call('item.get', {**base, 'filter': {'status': 0, 'value_type': [2]}})
+        rows += self.call('item.get', {**base, 'search': {'key_': 'snmptrap'}, 'startSearch': True})
+        out, seen = [], set()
+        for it in rows:
+            if it['itemid'] in seen:
+                continue
+            seen.add(it['itemid'])
+            out.append({'itemid': it['itemid'], 'hostid': it['hostid'], 'name': it.get('name', ''),
+                        'key': it.get('key_', ''), 'value_type': int(it.get('value_type', 2))})
+        return out
+
+    def log_history(self, items, time_from, time_till, limit=2000):
+        """[{'itemid','hostid','t','msg','key'}](古い順)。items は log_items() の戻り値"""
+        by_id = {it['itemid']: it for it in items}
+        by_vt = {}
+        for it in items:
+            by_vt.setdefault(it['value_type'], []).append(it['itemid'])
+        out = []
+        for vt, ids in by_vt.items():
+            rows = self.call('history.get', {'output': 'extend', 'history': vt, 'itemids': ids,
+                                             'time_from': int(time_from), 'time_till': int(time_till),
+                                             'sortfield': 'clock', 'sortorder': 'ASC', 'limit': limit})
+            for r in rows:
+                it = by_id.get(r['itemid'])
+                if not it:
+                    continue
+                t = int(r['clock']) + int(r.get('ns') or 0) / 1e9
+                # SNMP トラップは複数行のテキスト(snmptrapd の書式)。1 行にまとめる
+                msg = ' '.join(str(r.get('value') or '').split())
+                if msg:
+                    out.append({'itemid': it['itemid'], 'hostid': it['hostid'], 't': t, 'msg': msg[:1000],
+                                'key': it['key']})
+        out.sort(key=lambda x: x['t'])
+        return out
+
     def problems(self, hostids):
         """[{'hostid','name','severity','clock'}](未解決の問題)"""
         out = []

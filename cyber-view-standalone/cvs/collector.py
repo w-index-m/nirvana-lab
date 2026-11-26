@@ -8,6 +8,7 @@
 - 応答なし: Prometheus の up=0、Zabbix のインタフェース到達性=応答なし
 - アラート: link_down / syslog_error / フラップ各種 / Zabbix の問題
 """
+import re
 import threading
 import time
 from collections import defaultdict, deque
@@ -40,6 +41,12 @@ class Collector:
         self.prom = S.Prometheus(**src['prometheus']) if src.get('prometheus', {}).get('url') else None
         self.loki = S.Loki(**src['loki']) if src.get('loki', {}).get('url') else None
         self.zbx = S.Zabbix(**src['zabbix']) if src.get('zabbix', {}).get('url') else None
+        # Zabbix が集めているログ(ログ型アイテム・SNMP トラップ)も取り込む(sources.zabbix.logs: false で止める)
+        self.zbx_logs = bool(self.zbx) and (src.get('zabbix') or {}).get('logs', True) is not False
+        self._zbx_log_items, self._zbx_log_items_at, self._zbx_log_extra = [], 0.0, set()
+        self._zbx_log_until = time.time() - 300
+        # 機器ではなく syslog サーバー等のホストに付いたログのアイテムも読む(行の中の IP・装置名で装置を決める)
+        self.zbx_log_hosts = list((src.get('zabbix') or {}).get('log_hosts') or [])
         self.loki_labels = (src.get('loki') or {}).get('device_labels') or ['device_id', 'host', 'hostname', 'instance']
         sl = src.get('syslog') or {}
         self.syslog = SyslogReceiver(sl['listen'], self.on_syslog) if sl.get('listen') else None   # Loki が無くても直接受ける
@@ -95,6 +102,31 @@ class Collector:
                 return d['id']
         return None
 
+    # syslog サーバーがファイルに書く行の先頭(「時刻 送信元 」。RFC 3164 / RFC 3339 の時刻)。中継が重なると二重になる
+    _SYSLOG_HDR = re.compile(r'^(?:<\d+>)?(?:[A-Z][a-z]{2} +\d+ \d\d:\d\d:\d\d(?:\.\d+)?'
+                             r'|\d{4}-\d\d-\d\dT[\d:.]+(?:Z|[+-]\d\d:?\d\d)?)\s+([^\s%:][^\s:]*):?\s+')
+
+    def _split_syslog_header(self, msg):
+        """(本文, [送信元…])。log[] で読んだ syslog のファイルの行から「時刻 送信元」を外す"""
+        hosts = []
+        for _ in range(3):
+            m = self._SYSLOG_HDR.match(msg)
+            if not m:
+                break
+            hosts.append(m.group(1))
+            msg = msg[m.end():]
+        return msg, hosts
+
+    _IPV4 = re.compile(r'(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.])')
+
+    def _dev_in_line(self, msg):
+        """行の中の IP(送信元として書かれていることが多い)→ 装置名 の順で装置を探す"""
+        for ip in self._IPV4.findall(msg or ''):
+            dev = self.dev_of(ip)
+            if dev:
+                return dev
+        return self._dev_in_msg(msg)
+
     # ── 取り込み ──
     def poll_logs(self, now=None):
         if not self.loki:
@@ -133,8 +165,43 @@ class Collector:
             return True
         return False
 
+    def poll_zabbix_logs(self, now=None):
+        """Zabbix のログ型アイテム・SNMP トラップの履歴(history.get)を、Loki・syslog と同じ流れに入れる"""
+        if not self.zbx_logs:
+            return 0
+        now = time.time() if now is None else now
+        try:
+            hosts = self._zbx_hosts or self._zabbix_hosts()
+            by_id = {v['hostid']: k for k, v in hosts.items()}
+            if now - self._zbx_log_items_at > 300:          # アイテムの一覧は 5 分ごとに引き直す
+                extra = self.zbx.hosts(self.zbx_log_hosts) if self.zbx_log_hosts else {}
+                self._zbx_log_extra = {v['hostid'] for v in extra.values()}
+                self._zbx_log_items = self.zbx.log_items(list(by_id) + sorted(self._zbx_log_extra - set(by_id)))
+                self._zbx_log_items_at = now
+            rows = self.zbx.log_history(self._zbx_log_items, self._zbx_log_until - 5, now) if self._zbx_log_items else []
+            self.errors.pop('zabbix_logs', None)
+        except Exception as e:  # noqa: BLE001 - 取れなくても他は動かす
+            self.errors['zabbix_logs'] = str(e)[:200]
+            return 0
+        n = 0
+        for r in rows:
+            msg, senders = self._split_syslog_header(r['msg'])
+            # 機器のホストのアイテム → その装置。log_hosts(syslog サーバー等)のアイテム → 行頭の送信元・行の中の IP・装置名
+            if r['hostid'] in by_id:
+                dev = self.dev_of(by_id[r['hostid']])
+            else:
+                dev = self.dev_of(*senders[::-1]) or self._dev_in_line(msg)
+            if not dev or not msg:
+                continue
+            if self.analytics.record_log(dev, self.devs[dev]['hostname'], msg, r['t']):
+                n += 1
+                self.sec.on_log(dev, msg, r['t'])
+        self._zbx_log_until = now
+        return n
+
     def log_source(self):
-        return '+'.join([x for x, on in (('loki', self.loki), ('syslog', self.syslog)) if on]) or 'none'
+        zl = self.zbx_logs and bool(self._zbx_log_items)
+        return '+'.join([x for x, on in (('loki', self.loki), ('syslog', self.syslog), ('zabbix', zl)) if on]) or 'none'
 
     def poll_zabbix_problems(self):
         if not self.zbx:
@@ -332,6 +399,7 @@ class Collector:
     def tick(self):
         self.poll_logs()
         self.poll_zabbix_problems()
+        self.poll_zabbix_logs()
         self.poll_valhalla_alerts()
         snap = self.snapshot(60)
         now = snap['now']
@@ -465,7 +533,7 @@ class Collector:
         st = 'crit' if err else 'warn' if (warn or flaps) else 'ok'
         log_src = self.log_source()
         cats.append({'key': 'syslog', 'label': 'syslog', 'state': st, 'source': log_src,
-                     'source_error': self.errors.get('loki') or self.errors.get('syslog'),
+                     'source_error': self.errors.get('loki') or self.errors.get('syslog') or self.errors.get('zabbix_logs'),
                      'summary': (f'error以上 {len(err)} ・ warning {len(warn)} ・ 全 {len(logs)}件'
                                  + (f' ・ フラップ {len(flaps)}件' if flaps else '')),
                      'details': ([f"フラップ {H(a['src'])}: {a['name']} ({a['detail'][:60]})" for a in flaps[-3:]]
