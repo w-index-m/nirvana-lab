@@ -94,6 +94,22 @@ SAMPLE(sample_interval/suppress_redundant)・ON_CHANGE(変化時のみ、
 heartbeat_interval対応)・TARGET_DEFINED(=ON_CHANGE扱い)で処理するように
 した。`tests/test_gnmic_cli.py`(8 tests)。
 
+### 動画: gnmic の on-change と /cyber-view(2026-11-25)
+
+[![gnmic の on-change と /cyber-view](videos/cyber-view-gnmi-on-change.gif)](videos/cyber-view-gnmi-on-change.mp4)
+
+動画(68秒・字幕つき、gif は 2 倍速): [videos/cyber-view-gnmi-on-change.mp4](videos/cyber-view-gnmi-on-change.mp4)
+
+左のターミナルは本物の gnmic の出力をそのまま流したもの、右は `/cyber-view?view=links`。Catalyst 2台(GNMI-SW1 10.77.0.1 / GNMI-SW2 10.77.0.2、Gi1/0/1 同士)で、GNMI-SW1 に `gnxi` / `gnxi server` を入れて 10.77.0.1:50052 の実リスナーへつないだ。
+
+1. `gnmic capabilities`(gNMI 0.8.0、openconfig-interfaces、JSON_IETF)
+2. `subscribe --stream-mode on-change --path /interfaces/interface[name=GigabitEthernet1/0/1]/state/oper-status` → 最初に現在値 UP
+3. `subscribe --stream-mode sample --sample-interval 2s --path .../state/counters/out-octets` → `ping 10.77.0.2 repeat 3000 size 1500` のたびに 4,500,000 ずつ増える
+4. Gi1/0/1 を `shutdown` → DOWN が届き、画面は LINK DOWN。`no shutdown` → UP
+5. `gnmic set --update-path .../description --update-value uplink-to-GNMI-SW2` → `show running-config` の Gi1/0/1 に反映
+
+撮影前に、届くまでの時間を測った: shutdown のコマンドから DOWN まで約 0.04 秒、no shutdown から UP まで約 0.2 秒(届いた時刻を `date` で付けて比べた)。
+
 ## 3. pyATS/Genie — 本物のSSH越しにパース・差分
 
 ```bash
