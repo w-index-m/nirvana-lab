@@ -102,7 +102,7 @@ gnmic・Prometheus 2.54.1・snmp_exporter 0.28.0 で、`up` が「ヴァルハ�
 **実機の WS-C3650 でも確認した(2026-11-25、ユーザーの PC)**: 設定画面に SNMP community を入れて起動すると、ヴァルハラの
 `:9090/targets` で `gnmic` と `snmp`(`module="cisco_if"`)が両方 UP。起動直後の 15 秒ほどは両方とも UNKNOWN(Last Scrape が
 Never)で、失敗ではなく、まだ一度も取りに行っていないだけ。ニルヴァーナの ROUTER LINKS は SOURCE: VALHALLA・5 kbps・SW1 の
-CPU 34%・「再生」ボタンが出た。紹介資料 v2 の 11 枚目「SNMP もヴァルハラに貯める(gNMI と両方)」。
+CPU 34%・「再生」ボタンが出た。紹介資料 v2 の 12 枚目「SNMP もヴァルハラに貯める(gNMI と両方)」。
 
 ![実機 3650 の Targets(gnmic と snmp が UP)](images/nirvana-real-3650-valhalla-targets-up.png)
 
@@ -160,12 +160,14 @@ uutils の `tail` が `-20` を受け付けない点を直した。**実機の W
   書かないと、鍵のある Groq が先に選ばれる(既定の順は Claude → OpenAI 互換 → Ollama)。`nirvana.env` は起動時にしか読まない
   ので、書いたら「開始」で起動し直す(AI の窓の解析番号が続いていれば、古いニルヴァーナのまま)。
   あわせて Groq は、User-Agent の修正後に 403 が出なくなり(実機で確認)、代わりに既定のモデル名 `llama-3.1-8b-instant` が
-  `404 model_not_found` になった。Groq を使うなら、いま使えるモデル名を `NIRVANA_AI_MODEL` に書く。紹介資料 v2 の 15 枚目。
+  `404 model_not_found` になった。Groq を使うなら、いま使えるモデル名を `NIRVANA_AI_MODEL` に書く。紹介資料 v2 の 16 枚目。
 
   ![実機 3650 のローカル LLM(qwen2.5:7b)による AI ログ解析](images/nirvana-real-3650-syslog-ai-ollama.jpg)
 
-紹介資料 `docs/nirvana-introduction-v2.pptx` に、この6枚のスライド(当時の10〜15枚目。いまは 8〜10・12〜14枚目)を足し、取り込み方の表の NetFlow を
+紹介資料 `docs/nirvana-introduction-v2.pptx` に、この6枚のスライド(当時の10〜15枚目。いまは 8・10〜11・13〜15枚目)を足し、取り込み方の表の NetFlow を
 「v5・v9・IPFIX」に直した。
+
+紹介資料 v2 の 9 枚目に「gNMI とは」を足した(2026-11-27): 4 つの操作(Capabilities / Get / Set / Subscribe)と、このラボ・実機で試した結果、SNMP との違い(取り方・通信・値の名前)、実機 3650(16.12)の癖。以降のページは 1 枚ずつ後ろにずれた。
 
 版 11: 秘密の値(Cloudflare Radar の API トークンなど)は `%USERPROFILE%\.nirvana-gnmi\nirvana.env`(Linux は
 `~/.nirvana-gnmi/nirvana.env`)に `KEY=VALUE` で書くと、設定画面がニルヴァーナを起動するときに環境変数として渡す
