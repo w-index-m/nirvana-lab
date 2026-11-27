@@ -3,7 +3,7 @@ const { applyTheme } = require('/root/.claude/skills/synced/873d3bbd-f5ee-4b8c-9
 
 const OUT = process.argv[2] || 'deck.pptx';
 const THEME = {
-  name: 'Nirvana Behind',
+  name: 'AI Driven Behind',
   headFontFace: 'Meiryo',
   bodyFontFace: 'Meiryo',
   colors: {
@@ -36,7 +36,7 @@ pres.defineSlideMaster({
   margin: [0.5, 0.5, 0.5, 0.5],
   objects: [
     { placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.3, w: 9.0, h: 0.7, fontSize: 26, bold: true, color: C.background1, valign: 'middle', align: 'left', margin: 0 }, text: '' } },
-    { text: { text: 'Nirvana Lab ・ AI ドリブン開発の裏側', options: { x: 0.5, y: 5.2, w: 6, h: 0.3, fontSize: 9, color: C.accent6, margin: 0 } } },
+    { text: { text: 'AI ドリブン開発の裏側', options: { x: 0.5, y: 5.2, w: 6, h: 0.3, fontSize: 9, color: C.accent6, margin: 0 } } },
   ],
   slideNumber: { x: 9.0, y: 5.2, w: 0.5, h: 0.3, fontSize: 9, color: C.accent6, align: 'right' },
 });
@@ -59,12 +59,12 @@ function txt(slide, text, opt) {
 pres.addSection({ title: 'はじめに' });
 let s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'はじめに' });
 s.addText('AI ドリブン開発の裏側', { placeholder: 'title' });
-s.addText('Claude がニルヴァーナ ラボで、依頼から main への取り込みまで何をしているか', { placeholder: 'body' });
-hex(s, 7.75, 0.45, 0.9, C.accent1, '情', 'motif hex info');
-hex(s, 8.55, 0.95, 0.65, C.accent2, '注', 'motif hex warn');
-hex(s, 7.95, 1.25, 0.5, C.accent3, '警', 'motif hex alert', C.background1);
-txt(s, '2026-11-20', { x: 0.6, y: 4.7, w: 4, h: 0.3, fontSize: 12, color: C.accent6 });
-s.addNotes('このデッキは、ニルヴァーナ ラボの開発で Claude が裏側で何をしているかをまとめたものです。依頼は一言、そこから調査・実装・テスト・本物のツールでの確認・GitHub の CI・main への取り込みまでを Claude が進めます。');
+s.addText('AI ドリブン開発の定義・CI/CD・サンドボックスのまとめ', { placeholder: 'body' });
+hex(s, 7.75, 0.45, 0.9, C.accent1, '', 'motif hex 1');
+hex(s, 8.55, 0.95, 0.65, C.accent2, '', 'motif hex 2');
+hex(s, 7.95, 1.25, 0.5, C.accent3, '', 'motif hex 3');
+txt(s, '2026-11-27', { x: 0.6, y: 4.7, w: 4, h: 0.3, fontSize: 12, color: C.accent6 });
+s.addNotes('この資料は、AI ドリブン開発とは何か、その中で CI/CD がどう回っているか、Claude が作業する場所であるサンドボックスがどんなもので、どこまでさばけるかをまとめたものです。題材はネットワーク機器のエミュレータの開発で、依頼は一言、そこから調査・実装・テスト・本物のツールでの確認・GitHub の CI・main への取り込みまでを Claude が進めます。');
 
 // AI ドリブン開発とは(一般的な定義)
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'はじめに' });
@@ -102,11 +102,10 @@ pillars.forEach(([head, col, body], i) => {
   txt(s, head, { x: x + 0.3, y: 2.45, w: 2.3, h: 0.5, fontSize: 20, bold: true, color: C.background1 });
   txt(s, body, { x: x + 0.3, y: 3.0, w: 2.3, h: 1.65, fontSize: 13 });
 });
-s.addNotes('要点は三つです。任せる、確かめる、直し切る。今日の作業(SNMP のポートカウンタ、gNMI、STP の修正)もこの流れで進めました。');
+s.addNotes('要点は三つです。任せる、確かめる、直し切る。どの依頼もこの流れで進めます。');
 
 // 3. 開発ループ
-pres.addSection({ title: '進め方' });
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'はじめに' });
 s.addText('1 つの依頼が通る 8 つの工程', { placeholder: 'title' });
 const steps = [
   ['依頼', '一言で方向を伝える'], ['読む', 'コードを調べる'], ['作る', '実装する'], ['単体テスト', 'サンドボックス内'],
@@ -123,7 +122,8 @@ txt(s, '4〜6 は LLM サンドボックス(次のスライド)の中で動か�
 s.addNotes('工程は 8 つです。特徴は 5 番目の「本物で確認」です。単体テストが通っても、実際に起動したサーバーに本物の snmpwalk や gnmic を当てて、数字が期待どおり動くかを見ます。ここで見つかるバグが多いです。');
 
 // 3b. LLM サンドボックス
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+pres.addSection({ title: 'サンドボックス' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'サンドボックス' });
 s.addText('テストを動かす場所: LLM サンドボックス', { placeholder: 'title' });
 // 左: 流れの図
 const flow = [
@@ -156,10 +156,10 @@ feats.forEach(([h, b], i) => {
   txt(s, h, { x: 5.85, y: y - 0.02, w: 3.65, h: 0.32, fontSize: 14, bold: true, color: C.background1 });
   txt(s, b, { x: 5.85, y: y + 0.3, w: 3.65, h: 0.55, fontSize: 11 });
 });
-s.addNotes('4 から 6 の工程は、LLM サンドボックスの中で動いています。クラウド上に用意された使い捨ての Linux コンテナで、Claude はここでエミュレータのサーバーを起動し、net-snmp や gnmic、Playwright を入れて本物のツールを当てます。ユーザーの PC や実機からは隔離されていて、外への通信は許可されたものだけです。コンテナは使い捨てなので、残したい物は Git に push します。今日も途中でコンテナが入れ替わり、依存を入れ直しました。');
+s.addNotes('4 から 6 の工程は、LLM サンドボックスの中で動いています。クラウド上に用意された使い捨ての Linux コンテナで、Claude はここでエミュレータのサーバーを起動し、net-snmp や gnmic、Playwright を入れて本物のツールを当てます。ユーザーの PC や実機からは隔離されていて、外への通信は許可されたものだけです。コンテナは使い捨てなので、残したい物は Git に push します。作業の途中でコンテナが入れ替わり、依存を入れ直すこともあります。');
 
 // 3b2. サンドボックスは Claude だけのもの?
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'サンドボックス' });
 s.addText('サンドボックスは Claude だけのもの?', { placeholder: 'title' });
 const HD = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 11 };
 const yes = (t) => ({ text: t, options: { color: THEME.colors.accent5, bold: true } });
@@ -180,7 +180,7 @@ txt(s, '2026-11-22 時点。製品の機能・名前はよく変わる(出典は
 s.addNotes('このサンドボックスは Claude だけのものではありません。OpenAI の Codex のクラウド版はタスクごとにコンテナを用意し、作業中の外への通信は既定でオフです。GitHub Copilot のコーディングエージェントは、GitHub Actions の使い捨て環境で作業して PR を出します。ChatGPT のコード実行も、Python 専用の隔離環境です。一方、エディタの中で動く Copilot や PC 版の Claude Code は、利用者の PC で直接動くのでサンドボックスではありません。サンドボックスを使う理由はどこも同じで、安全、使い捨て、出入りを絞れることです。この開発で特別だったのは、サンドボックスがあること自体ではなく、その中で本物のツールを動かして確かめながら進めた使い方の方です。');
 
 // 3c. サンドボックスの中身と、さばける量
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'サンドボックス' });
 s.addText('サンドボックスの中身と、さばける量', { placeholder: 'title' });
 const SPEC = { bold: true, color: C.text1, fill: { color: C.accent2 }, fontSize: 12 };
 const sp = (a, b) => [{ text: a, options: { bold: true, color: C.background1 } }, { text: b }];
@@ -208,7 +208,7 @@ txt(s, '壁はサンドボックスでなく、エミュレータの中継の作
 s.addNotes('サンドボックスは Ubuntu 24.04.5 LTS、4 コア、メモリ 15 GB です。以前 k6 で ALB のエミュレータに負荷をかけたとき、同時 20 アクセスなら失敗 0%、50 で 0.09%、200 で 4.73% でした。SSH の新規接続は 1 秒あたり約 100 で頭打ちです。どちらも、壁はサンドボックスの性能ではなく、エミュレータの中継部分が 1 接続ごとにスレッドを 2 本使う作りであることが原因です。数百〜数千の同時接続を試すには、非同期 I/O への作り替えが次の一手になります。');
 
 // 3d. サンドボックスと性能の壁(11/22 実測)
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'サンドボックス' });
 s.addText('サンドボックスと性能の壁(11/22 実測)', { placeholder: 'title' });
 const chartBase = {
   barDir: 'col', showTitle: true, titleFontSize: 11, titleColor: THEME.colors.lt1, titleFontFace: '+mn-lt',
@@ -232,7 +232,7 @@ txt(s, '壁はサンドボックスの性能ではなく、エミュレータの
 s.addNotes('前の数字が、サンドボックスの性能で決まっていたのかを測り直しました。中継を通さずに送るだけなら、ルートインジェクターの送信は 1 プロセス 76 万 pps から 4 プロセス 285 万 pps へ、コアに比例して 3.7 倍に伸びます。9 月に測ったときも 58 万から 224 万で 3.9 倍でした。一方、BIG-IP の中継は Python のスレッドで動くので、2 コアを渡すと GIL の取り合いで処理量が約半分に落ちます。なお 1 コアのときの 2,300 は、負荷をかける側(Python)の上限で、中継の上限ではありません。200 同時になると、中継を通したときだけ p95 が約 1 秒に跳ねます。このとき中継の CPU には余裕があり、待ち受けの列を広げても変わらなかったので、原因はまだ調査中です。詳しくは docs/sandbox-performance-wall.md にあります。');
 
 // 3e. 運ぶ量(Gbps)で見ると
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '進め方' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'サンドボックス' });
 s.addText('運ぶ量(Gbps)で見ると', { placeholder: 'title' });
 card(s, 0.5, 1.1, 5.5, 3.45, 'gbps card');
 s.addChart(pres.charts.BAR, [{ name: 'Gbps', labels: ['UDP 送るだけ\n(ルートインジェクター)', 'TCP 直接\n(iperf3)', 'TCP 中継経由\n1 コア', 'TCP 中継経由\n2 コア・4 本'], values: [9.0, 17.2, 6.5, 3.6] }],
@@ -248,8 +248,8 @@ txt(s, 'サンドボックスの中は 1 本で約 17 Gbps 出る。中継を通
 s.addNotes('req/s は帯域の試験ではないので、Gbps に直しました。前の HTTP の試験は 1 回あたり数百バイトなので、1,300 req/s は 3〜10 Mbps にしかなりません。大きなデータを 2 つの IP の間で流すと、ルートインジェクターで UDP を送るだけなら 1 プロセス約 9 Gbps、iperf3 の TCP 1 本で直接 17.2 Gbps、BIG-IP の中継経由で 6.5 Gbps でした。中継は 1 コアを使い切っていて、2 コアを渡すと 4 本で 3.6 Gbps に落ちました。ラボの装置は VM ではなく、1 つのコンテナの中で別々の IP を持っているだけなので、これは同じ機械の中の本物の TCP の値です。測る途中で、中継が TCP の半クローズを扱えないバグも見つけました。');
 
 // 4. テストの 4 層
-pres.addSection({ title: 'テスト' });
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
+pres.addSection({ title: 'テストと CI/CD' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テストと CI/CD' });
 s.addText('テストは 4 層。下ほど数が多く、上ほど本物に近い', { placeholder: 'title' });
 const layers = [
   ['GitHub CI', 'push と PR のたびに自動', C.accent4, 4.4],
@@ -273,7 +273,7 @@ txt(s, [
 s.addNotes('テストは 4 層です。一番下の pytest が約 2,160 件。その上のシナリオ回帰は、本物のサーバーを起動して OSPF・BGP・STP などを 12 シナリオで確かめます。さらに本物のツールでの確認、最後に GitHub の CI で同じテストをもう一度回します。');
 
 // 4b. pytest と仲間の道具 / PyTorch の位置づけ
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テストと CI/CD' });
 s.addText('テストの道具と、テストされる側の PyTorch', { placeholder: 'title' });
 const tools4 = [
   ['pytest', 'テストを集めて実行する本体'],
@@ -300,26 +300,8 @@ txt(s, [
 ], { x: 6.25, y: 2.0, w: 3.05, h: 2.9, fontSize: 11, paraSpaceAfter: 6 });
 s.addNotes('テストの道具は pytest が中心で、時間で動く処理には pytest-asyncio、どこまでテストが通ったかは pytest-cov、サーバーを起動せずに API を呼ぶには FastAPI の TestClient、書き方のチェックに ruff を使います。CI も同じ一式を入れています。PyTorch はテストの道具ではなく、異常検知に使うテストされる側のライブラリです。サンドボックスからは配布元に届かないため、手元で落としたファイルを GitHub の Release 経由で入れる回り道をしました。本体には不要なので、入っていない環境ではそのテストを飛ばします。');
 
-// 5. 数字
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
-s.addText('今日の全体テスト', { placeholder: 'title' });
-const stats = [
-  ['2,134', 'passed / 失敗 0', C.accent5],
-  ['17 分', '全体テストの所要時間', C.accent1],
-  ['172', 'テストファイル', C.accent4],
-  ['62', 'シナリオの確認項目', C.accent2],
-];
-stats.forEach(([n, l, col], i) => {
-  const x = 0.5 + i * 2.3;
-  card(s, x, 1.35, 2.1, 2.4, 'stat card ' + (i + 1));
-  txt(s, n, { x: x + 0.15, y: 1.65, w: 1.8, h: 1.0, align: 'center', valign: 'middle', fontSize: 40, bold: true, color: col });
-  txt(s, l, { x: x + 0.15, y: 2.8, w: 1.8, h: 0.7, align: 'center', fontSize: 12, color: C.background2 });
-});
-txt(s, '新しく足したテスト: gNMI のカウンタ 5 件・ポートカウンタ 12 件・STP 3 件', { x: 0.5, y: 4.2, w: 9, h: 0.4, fontSize: 14, color: C.background1 });
-s.addNotes('今日の全体テストは 2,134 件が通り、失敗は 0 件でした。所要時間は約 17 分です。今日の作業で新しく足したテストは、gNMI のカウンタ、ポートカウンタ、STP の合わせて 20 件です。');
-
 // 6. 本物のツール
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テストと CI/CD' });
 s.addText('本物のツールを当てて確かめる', { placeholder: 'title' });
 const H = { bold: true, color: C.text1, fill: { color: C.accent1 }, fontSize: 13 };
 const R = (a, b, c) => [{ text: a, options: { bold: true, color: C.background1 } }, { text: b }, { text: c, options: { color: C.accent2 } }];
@@ -328,15 +310,15 @@ s.addTable([
   R('snmpwalk / snmpget', '待機中のアップリンクの IF-MIB', 'BPDU が 2 秒ごとに増加'),
   R('snmpget', 'PC から ping 10 回(1000 B)', 'ユニキャスト 10 個・10,280 B'),
   R('gnmic', 'gNMI の 1 秒ストリーム', '1 秒ごとに届き、ping の分だけ増加'),
-  R('Playwright', '/cyber-view の演出', '起動演出と FX の切り替え、エラー 0'),
+  R('Playwright', 'ブラウザで画面を開いて操作する', '表示と操作でエラー 0'),
   R('uvicorn + curl', '本物のサーバーに CLI を流す', 'show の出力と API の値が一致'),
   R('pyATS / Genie', 'show の出力を実機用の解析器で読む', '読めない形を見つけて直した(以前)'),
   R('Batfish / GoBGP', '経路計算と本物の BGP と突き合わせ', '食い違いを見つけて直した(以前)'),
 ], { x: 0.5, y: 1.25, w: 9.0, colW: [2.1, 3.4, 3.5], fontSize: 12, color: C.background2, fill: { color: C.text2 }, border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.45, valign: 'middle', objectName: 'tools table' });
-s.addNotes('単体テストは作り物の中で完結するので、実機の監視ツールから見て正しいかは別に確かめます。今日は net-snmp の snmpwalk、gnmic、Playwright を使いました。');
+s.addNotes('単体テストは作り物の中で完結するので、実機の監視ツールから見て正しいかは別に確かめます。net-snmp の snmpwalk、gnmic、ブラウザを動かす Playwright などを使います。');
 
 // 6b. 試験の全体像
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テストと CI/CD' });
 s.addText('試験の全体像: 作り物の中と、外から本物で', { placeholder: 'title' });
 const OV = { bold: true, color: C.text1, fill: { color: C.accent1 }, fontSize: 12 };
 const ov = (a, b, c, inside) => [{ text: a, options: { bold: true, color: C.background1 } }, { text: b },
@@ -349,110 +331,17 @@ s.addTable([
   ov('LLM による判定', '文字列の一致では書きにくい「意味として正しいか」', 'llm_judge', true),
   ov('本物のツール', '監視・自動化ツールから見て正しいか', 'snmpwalk・gnmic・pyATS など', false),
   ov('ルートインジェクター', '外から本物の RIP / BGP を打ち込み、受け取って広めるか', 'route_injector_cli', false),
-  ov('実環境', '自宅の本物の Catalyst で SNMP・trap・応答なし', '単体版 + 実機', false),
+  ov('実環境', '自宅の本物の Catalyst で SNMP・gNMI・trap', '実機', false),
   ov('CI', '「自分の環境では通る」を防ぐ', 'GitHub Actions', false),
 ], { x: 0.5, y: 1.15, w: 9.0, colW: [1.9, 4.4, 2.7], fontSize: 11, color: C.background2, fill: { color: C.text2 },
      border: { type: 'solid', pt: 1, color: C.text1 }, rowH: 0.39, valign: 'middle', objectName: 'overview table' });
 txt(s, [{ text: '水色', options: { color: C.accent1, bold: true } }, { text: ' = 作り物の中で確かめる   ' },
         { text: '橙', options: { color: C.accent2, bold: true } }, { text: ' = 外から本物で叩く。片方で漏れたバグをもう片方が拾う' }],
     { x: 0.5, y: 4.82, w: 9, h: 0.3, fontSize: 11 });
-s.addNotes('試験は大きく 8 種類あります。上の 4 つは作り物の中で確かめる試験、下の 4 つは外から本物で叩く試験です。今日の STP の 2 件も、単体試験は通っていて、本物のツールで数値を見て初めて見つかりました。両方あることで漏れが減ります。');
-
-// 6c. 画面で見る試験の様子
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テスト' });
-s.addText('試験の様子をニルヴァーナの画面で見る', { placeholder: 'title' });
-s.addImage({ path: 'docs/images/cyber-view-test-run.jpg', x: 0.5, y: 1.15, w: 6.2, h: 3.68, objectName: 'test run screenshot',
-             altText: 'ニルヴァーナの ROUTER LINKS 画面。装置の上に紫の「試」・緑の PASS・赤の「警」のプレート、左下に TEST RUN パネル' });
-const legend = [
-  ['試(紫)', 'どの装置に何を当てたか', C.accent4],
-  ['試(緑)', 'チェックが通った', C.accent5],
-  ['警(赤)', 'チェックが落ちた。理由も出す', C.accent3],
-  ['TEST RUN', '件数と直近の結果。終了後 60 秒で消える', C.accent1],
-];
-legend.forEach(([h, b, col], i) => {
-  const y = 1.2 + i * 0.9;
-  hex(s, 6.95, y, 0.42, col, '', 'legend hex ' + (i + 1));
-  txt(s, h, { x: 7.5, y: y - 0.03, w: 2.0, h: 0.32, fontSize: 13, bold: true, color: C.background1 });
-  txt(s, b, { x: 7.5, y: y + 0.28, w: 2.0, h: 0.55, fontSize: 10 });
-});
-s.addNotes('Claude が裏で回している試験を、ニルヴァーナの画面でそのまま見られるようにしました。シナリオ回帰を流すと、装置の上にどのコマンドを当てたかが紫の「試」で、通ったら緑、落ちたら赤の「警」で出ます。左下の TEST RUN パネルには件数と直近の結果が流れます。pytest も環境変数 NETLAB_ACTIVITY_URL を指定すれば同じように流せます。');
-
-// 7. CI が落ちたとき
-pres.addSection({ title: '失敗への対応' });
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
-s.addText('CI が落ちたら、再実行ではなく原因を探す', { placeholder: 'title' });
-const cases = [
-  ['L2 ループ', '裏の定期処理が、テストより先に警報を出していた', 'テスト中は定期処理を止め、検知を直接呼ぶ', C.accent2],
-  ['STP の復旧ログ', 'no shutdown の途中で BPDU がポートを作り直し、相手側の up ログが出ない', 'エミュレータの実バグ。落としたポートは復旧処理だけが作り直す', C.accent3],
-  ['RIP のシナリオ', 'フィルタより先に経路が隣へ届くことがあった', 'distribute-list を network の前に入れる', C.accent2],
-];
-cases.forEach(([h, cause, fix, col], i) => {
-  const x = 0.5 + i * 3.05;
-  card(s, x, 1.25, 2.85, 3.65, 'case card ' + (i + 1));
-  hex(s, x + 0.25, 1.45, 0.5, col, i === 1 ? '警' : '注', 'case hex ' + (i + 1), i === 1 ? C.background1 : C.text1);
-  txt(s, h, { x: x + 0.9, y: 1.5, w: 1.8, h: 0.45, fontSize: 15, bold: true, color: C.background1, valign: 'middle' });
-  txt(s, '原因', { x: x + 0.25, y: 2.15, w: 2.4, h: 0.3, fontSize: 11, bold: true, color: C.accent6 });
-  txt(s, cause, { x: x + 0.25, y: 2.45, w: 2.4, h: 1.05, fontSize: 12 });
-  txt(s, '直し方', { x: x + 0.25, y: 3.5, w: 2.4, h: 0.3, fontSize: 11, bold: true, color: C.accent6 });
-  txt(s, fix, { x: x + 0.25, y: 3.8, w: 2.4, h: 1.0, fontSize: 12, color: C.background1 });
-});
-s.addNotes('今日、GitHub の CI で落ちたのは 3 件です。どれも「時々落ちる」で片付けず、原因を突き止めました。2 件目の STP は、テストではなくエミュレータ自体の実バグでした。');
-
-// 8. 再現してから直す
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
-s.addText('まず同じ失敗を手元で再現する', { placeholder: 'title' });
-card(s, 0.5, 1.25, 4.35, 3.2, 'before card');
-card(s, 5.15, 1.25, 4.35, 3.2, 'after card');
-txt(s, '直す前のコード', { x: 0.8, y: 1.45, w: 3.8, h: 0.4, fontSize: 16, bold: true, color: C.accent3 });
-txt(s, '「ループを閉じた直後に 2.5 秒待つ」をテストに一時的に足すと、CI と全く同じ失敗が毎回起きる', { x: 0.8, y: 1.95, w: 3.8, h: 1.1, fontSize: 13 });
-s.addText('assert (0 == 1)\n1 failed', { x: 0.8, y: 3.2, w: 3.8, h: 0.9, fontFace: 'Courier New', fontSize: 14, color: C.accent3, fill: { color: C.text1 }, margin: 8, isTextBox: true, objectName: 'before output' });
-txt(s, '直した後のコード', { x: 5.45, y: 1.45, w: 3.8, h: 0.4, fontSize: 16, bold: true, color: C.accent5 });
-txt(s, '同じ 2.5 秒の待ちを入れても通る。待ちを外して全体テストと CI でもう一度確かめる', { x: 5.45, y: 1.95, w: 3.8, h: 1.1, fontSize: 13 });
-s.addText('29 passed', { x: 5.45, y: 3.2, w: 3.8, h: 0.9, fontFace: 'Courier New', fontSize: 14, color: C.accent5, fill: { color: C.text1 }, margin: 8, isTextBox: true, objectName: 'after output' });
-txt(s, '再現できない修正は「たまたま通った」と区別がつかない', { x: 0.5, y: 4.65, w: 9, h: 0.35, fontSize: 13, italic: true, color: C.accent2 });
-s.addNotes('時々しか落ちないテストは、落ちる条件を意図的に作って再現します。今回は待ち時間を 2.5 秒足すと、CI と同じ assert (0 == 1) が毎回出ました。直した後は同じ条件でも通ることを確かめています。');
-
-// 9. 見つかった実バグ
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
-s.addText('確かめる中で見つかった実バグ(今日の分)', { placeholder: 'title' });
-const bugs = [
-  ['STP', 'SVI のサブネットが違うと BPDU が届かず、2 台とも「ルート」のまま'],
-  ['STP', 'no shutdown で戻したとき、相手側の up ログが出ず LINK DOWN が残る'],
-  ['カウンタ', '1/30 を 60 回足すと 1.999… になり、LLDP を 1 個少なく数えていた'],
-  ['SNMP', 'L2 のアクセスポートが IF-MIB に出ず、流量を読めなかった'],
-  ['PC', 'ping -c / -s でカウンタが動かず、ifconfig で IP が設定されなかった'],
-  ['単体版', 'linkUp の trap を取りこぼすと、LINK DOWN が消えない'],
-];
-bugs.forEach(([tag, b], i) => {
-  const col = i % 2, row = Math.floor(i / 2);
-  const x = 0.5 + col * 4.6, y = 1.25 + row * 1.2;
-  hex(s, x, y, 0.55, C.accent3, '!', 'bug hex ' + (i + 1), C.background1);
-  txt(s, tag, { x: x + 0.7, y: y + 0.0, w: 3.6, h: 0.3, fontSize: 12, bold: true, color: C.accent3 });
-  txt(s, b, { x: x + 0.7, y: y + 0.3, w: 3.7, h: 0.8, fontSize: 12 });
-});
-s.addNotes('作った機能を本物のツールで確かめると、関係する別の場所のバグも見つかります。今日見つけて直した実バグがこの 6 件です。STP の 1 件目は、SNMP のカウンタを確かめている最中に気づきました。');
-
-// 9b. ある 1 日の実況
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
-s.addText('ある 1 日の実況(2026-11-20)', { placeholder: 'title' });
-const day = [
-  ['CI', '午前の PR で、GitHub の試験が 3 件落ちる', C.accent3],
-  ['再現して直す', '手元で同じ失敗を再現。うち 1 件は STP の実バグ(復旧ログが出ない)', C.accent3],
-  ['依頼', '「各機器のポートの SNMP カウンタを」', C.accent1],
-  ['作る・確かめる', '全体 2,134 件が通る。snmpwalk で「STP が 2 台ともルート」に気づく', C.accent2],
-  ['原因', 'BPDU が「同じ IP サブネットか」の判定に入っていた。外して直す', C.accent3],
-  ['取り込み', '緑を確かめて main へ。この資料にまとめる', C.accent5],
-];
-day.forEach(([h, b, col], i) => {
-  const y = 1.12 + i * 0.64;
-  hex(s, 0.6, y, 0.48, col, String(i + 1), 'day hex ' + (i + 1), col === C.accent3 ? C.background1 : C.text1);
-  txt(s, h, { x: 1.25, y: y + 0.04, w: 1.75, h: 0.35, fontSize: 14, bold: true, color: C.background1 });
-  txt(s, b, { x: 3.0, y: y + 0.04, w: 6.5, h: 0.35, fontSize: 12 });
-});
-s.addNotes('今日 1 日の流れです。午前は、PR の GitHub の試験が 3 件落ちました。手元で同じ失敗を再現して直し、うち 1 件は STP の復旧ログが出ないエミュレータの実バグでした。午後はポートの SNMP カウンタを頼まれて実装し、全体試験も通りました。ところが本物の snmpwalk で数値を見ていると、STP が 2 台ともルートのままになっていることに気づきました。原因は、L2 の BPDU が IP のサブネット判定に入っていたことでした。直して緑を確かめ、main に取り込みました。');
+s.addNotes('試験は大きく 8 種類あります。上の 4 つは作り物の中で確かめる試験、下の 4 つは外から本物で叩く試験です。STP の実バグ 2 件も、単体試験は通っていて、本物のツールで数値を見て初めて見つかりました。両方あることで漏れが減ります。');
 
 // 9c. 知らないうちに CI/CD
-s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'テストと CI/CD' });
 s.addText('知らないうちに CI/CD を回している', { placeholder: 'title' });
 const cicdFlow = [
   ['人', '「やって」', C.accent2],
@@ -481,30 +370,79 @@ txt(s, '例: 赤いコミットのある PR は、緑になるまで「取り込
 txt(s, '用語を知らなくても、「やって」と「取り込んで」の 2 つの言葉が CI/CD のスイッチになっている', { x: 0.5, y: 4.88, w: 9, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
 s.addNotes('CI/CD という言葉を意識しなくても、この開発は CI/CD の形で回っています。人が「やって」と言うと、Claude が作業ブランチに push し、そのたびに GitHub Actions が約 2,200 件の試験とシナリオ回帰を自動で流します。これが CI です。緑になってから人が「取り込んで」と言うと main に入り、公開版は main から作られます。これが CD です。人は用語を知らなくても、2 つの言葉で承認の関門を握っています。');
 
-// 9d. 知らないものを作った後の確かめ
+// 7. CI が落ちたとき
+pres.addSection({ title: '失敗への対応' });
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
-s.addText('作るより、確かめる方が大変', { placeholder: 'title' });
-txt(s, '人も Claude も初めて使う道具を組み合わせると、出来上がったものが「正しく動いているか」を、聞きながら確かめることになる', { x: 0.5, y: 1.05, w: 9, h: 0.5, fontSize: 13, color: C.accent1 });
-card(s, 0.5, 1.65, 4.35, 3.1, 'hard card');
-card(s, 5.15, 1.65, 4.35, 3.1, 'ease card');
-txt(s, '大変だったこと(実機 3650 + WSL)', { x: 0.75, y: 1.8, w: 3.9, h: 0.35, fontSize: 14, bold: true, color: C.accent3 });
-const hard = [
-  'Claude は実機に触れない。画面写真と貼り付けた出力の往復で状態を知る',
-  '「正しい画面」を誰も知らない。gnmic・NetFlow v9・Loki など、OK の見た目から聞き合う',
-  '環境の壁が次々に出る: 再起動で設定が消える、PowerShell の .\\、WSL が OSPF を受けない、管理者権限',
-  '外のサービスの仕様変更: IHR の API 移転、Groq の 403(User-Agent)',
+s.addText('CI が落ちたら、再実行ではなく原因を探す', { placeholder: 'title' });
+const cases = [
+  ['L2 ループ', '裏の定期処理が、テストより先に警報を出していた', 'テスト中は定期処理を止め、検知を直接呼ぶ', C.accent2],
+  ['STP の復旧ログ', 'no shutdown の途中で BPDU がポートを作り直し、相手側の up ログが出ない', 'エミュレータの実バグ。落としたポートは復旧処理だけが作り直す', C.accent3],
+  ['RIP のシナリオ', 'フィルタより先に経路が隣へ届くことがあった', 'distribute-list を network の前に入れる', C.accent2],
 ];
-txt(s, hard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < hard.length - 1 } })), { x: 0.75, y: 2.2, w: 3.95, h: 2.5, fontSize: 11, paraSpaceAfter: 5 });
-txt(s, 'やわらげた工夫', { x: 5.4, y: 1.8, w: 3.9, h: 0.35, fontSize: 14, bold: true, color: C.accent5 });
-const ease = [
-  '確かめを道具に入れる: 起動スクリプトが OK / NG と原因の目安を出す',
-  '設定画面に版番号。「古い画面が答えていた」をすぐ見分ける',
-  '先に模擬装置と本物のツール(Prometheus・Loki・Grafana・Cacti)で通しておく',
-  '実機で分かったことは、その日のうちにドキュメントと試験に残す',
+cases.forEach(([h, cause, fix, col], i) => {
+  const x = 0.5 + i * 3.05;
+  card(s, x, 1.25, 2.85, 3.65, 'case card ' + (i + 1));
+  hex(s, x + 0.25, 1.45, 0.5, col, i === 1 ? '警' : '注', 'case hex ' + (i + 1), i === 1 ? C.background1 : C.text1);
+  txt(s, h, { x: x + 0.9, y: 1.5, w: 1.8, h: 0.45, fontSize: 15, bold: true, color: C.background1, valign: 'middle' });
+  txt(s, '原因', { x: x + 0.25, y: 2.15, w: 2.4, h: 0.3, fontSize: 11, bold: true, color: C.accent6 });
+  txt(s, cause, { x: x + 0.25, y: 2.45, w: 2.4, h: 1.05, fontSize: 12 });
+  txt(s, '直し方', { x: x + 0.25, y: 3.5, w: 2.4, h: 0.3, fontSize: 11, bold: true, color: C.accent6 });
+  txt(s, fix, { x: x + 0.25, y: 3.8, w: 2.4, h: 1.0, fontSize: 12, color: C.background1 });
+});
+s.addNotes('ある日、GitHub の CI で落ちたのは 3 件でした。どれも「時々落ちる」で片付けず、原因を突き止めました。2 件目の STP は、テストではなくエミュレータ自体の実バグでした。');
+
+// 8. 再現してから直す
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
+s.addText('まず同じ失敗を手元で再現する', { placeholder: 'title' });
+card(s, 0.5, 1.25, 4.35, 3.2, 'before card');
+card(s, 5.15, 1.25, 4.35, 3.2, 'after card');
+txt(s, '直す前のコード', { x: 0.8, y: 1.45, w: 3.8, h: 0.4, fontSize: 16, bold: true, color: C.accent3 });
+txt(s, '「ループを閉じた直後に 2.5 秒待つ」をテストに一時的に足すと、CI と全く同じ失敗が毎回起きる', { x: 0.8, y: 1.95, w: 3.8, h: 1.1, fontSize: 13 });
+s.addText('assert (0 == 1)\n1 failed', { x: 0.8, y: 3.2, w: 3.8, h: 0.9, fontFace: 'Courier New', fontSize: 14, color: C.accent3, fill: { color: C.text1 }, margin: 8, isTextBox: true, objectName: 'before output' });
+txt(s, '直した後のコード', { x: 5.45, y: 1.45, w: 3.8, h: 0.4, fontSize: 16, bold: true, color: C.accent5 });
+txt(s, '同じ 2.5 秒の待ちを入れても通る。待ちを外して全体テストと CI でもう一度確かめる', { x: 5.45, y: 1.95, w: 3.8, h: 1.1, fontSize: 13 });
+s.addText('29 passed', { x: 5.45, y: 3.2, w: 3.8, h: 0.9, fontFace: 'Courier New', fontSize: 14, color: C.accent5, fill: { color: C.text1 }, margin: 8, isTextBox: true, objectName: 'after output' });
+txt(s, '再現できない修正は「たまたま通った」と区別がつかない', { x: 0.5, y: 4.65, w: 9, h: 0.35, fontSize: 13, italic: true, color: C.accent2 });
+s.addNotes('時々しか落ちないテストは、落ちる条件を意図的に作って再現します。今回は待ち時間を 2.5 秒足すと、CI と同じ assert (0 == 1) が毎回出ました。直した後は同じ条件でも通ることを確かめています。');
+
+// 9. 見つかった実バグ
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
+s.addText('確かめる中で見つかった実バグ(例)', { placeholder: 'title' });
+const bugs = [
+  ['STP', 'SVI のサブネットが違うと BPDU が届かず、2 台とも「ルート」のまま'],
+  ['STP', 'no shutdown で戻したとき、相手側の up ログが出ず LINK DOWN が残る'],
+  ['カウンタ', '1/30 を 60 回足すと 1.999… になり、LLDP を 1 個少なく数えていた'],
+  ['SNMP', 'L2 のアクセスポートが IF-MIB に出ず、流量を読めなかった'],
+  ['PC', 'ping -c / -s でカウンタが動かず、ifconfig で IP が設定されなかった'],
+  ['スキャン', '最後の 1 台の途中で止めると「停止」が「完了」で上書きされる'],
 ];
-txt(s, ease.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < ease.length - 1 } })), { x: 5.4, y: 2.2, w: 3.95, h: 2.5, fontSize: 11, paraSpaceAfter: 5 });
-txt(s, '「聞きながら進める」往復は手抜きではなく、計画に最初から入れておく工程', { x: 0.5, y: 4.85, w: 9, h: 0.3, fontSize: 12, italic: true, color: C.accent2 });
-s.addNotes('実装そのものは早く進みます。時間がかかるのは、出来上がったものが本当に正しく動いているかを確かめるところです。Claude は自宅の実機に触れないので、画面の写真や貼り付けた出力をやり取りして状態を知ります。gnmic や NetFlow v9、Loki のように人も初めて使う道具だと、そもそも正しい画面がどう見えるのかを、お互いに聞き合いながら確かめることになりました。再起動で設定が消える、PowerShell では .\\ が要る、WSL は OSPF を受け取れない、といった環境の壁も次々に出ました。そこで、起動スクリプト自身が OK と NG と原因の目安を出す、設定画面に版番号を出す、先に模擬装置と本物のツールで通しておく、分かったことをその日のうちに残す、という工夫をしています。');
+bugs.forEach(([tag, b], i) => {
+  const col = i % 2, row = Math.floor(i / 2);
+  const x = 0.5 + col * 4.6, y = 1.25 + row * 1.2;
+  hex(s, x, y, 0.55, C.accent3, '!', 'bug hex ' + (i + 1), C.background1);
+  txt(s, tag, { x: x + 0.7, y: y + 0.0, w: 3.6, h: 0.3, fontSize: 12, bold: true, color: C.accent3 });
+  txt(s, b, { x: x + 0.7, y: y + 0.3, w: 3.7, h: 0.8, fontSize: 12 });
+});
+s.addNotes('作った機能を本物のツールで確かめると、関係する別の場所のバグも見つかります。見つけて直した実バグの例がこの 6 件です。STP の 1 件目は、SNMP のカウンタを確かめている最中に気づきました。最後の 1 件は、CI でだけ時々落ちていた試験の原因を探して見つけた、停止のタイミングの不具合です。');
+
+// 9b. ある 1 日の実況
+s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: '失敗への対応' });
+s.addText('ある 1 日の実況(2026-11-20)', { placeholder: 'title' });
+const day = [
+  ['CI', '午前の PR で、GitHub の試験が 3 件落ちる', C.accent3],
+  ['再現して直す', '手元で同じ失敗を再現。うち 1 件は STP の実バグ(復旧ログが出ない)', C.accent3],
+  ['依頼', '「各機器のポートの SNMP カウンタを」', C.accent1],
+  ['作る・確かめる', '全体 2,134 件が通る。snmpwalk で「STP が 2 台ともルート」に気づく', C.accent2],
+  ['原因', 'BPDU が「同じ IP サブネットか」の判定に入っていた。外して直す', C.accent3],
+  ['取り込み', '緑を確かめて main へ。この資料にまとめる', C.accent5],
+];
+day.forEach(([h, b, col], i) => {
+  const y = 1.12 + i * 0.64;
+  hex(s, 0.6, y, 0.48, col, String(i + 1), 'day hex ' + (i + 1), col === C.accent3 ? C.background1 : C.text1);
+  txt(s, h, { x: 1.25, y: y + 0.04, w: 1.75, h: 0.35, fontSize: 14, bold: true, color: C.background1 });
+  txt(s, b, { x: 3.0, y: y + 0.04, w: 6.5, h: 0.35, fontSize: 12 });
+});
+s.addNotes('2026-11-20 の 1 日の流れです。午前は、PR の GitHub の試験が 3 件落ちました。手元で同じ失敗を再現して直し、うち 1 件は STP の復旧ログが出ないエミュレータの実バグでした。午後はポートの SNMP カウンタを頼まれて実装し、全体試験も通りました。ところが本物の snmpwalk で数値を見ていると、STP が 2 台ともルートのままになっていることに気づきました。原因は、L2 の BPDU が IP のサブネット判定に入っていたことでした。直して緑を確かめ、main に取り込みました。');
 
 // 10. 役割分担
 pres.addSection({ title: 'まとめ' });
@@ -537,7 +475,7 @@ rules.forEach(([h, b], i) => {
   txt(s, h, { x: 1.3, y: y + 0.02, w: 8, h: 0.35, fontSize: 15, bold: true, color: C.background1 });
   txt(s, b, { x: 1.3, y: y + 0.38, w: 8, h: 0.4, fontSize: 12 });
 });
-s.addNotes('AI に任せる範囲が広いほど、決まりが大事です。今日も、強制 push は環境側で止められ、通常のマージで対応しました。main への取り込みは「取り込んで」と言われたときだけ行います。');
+s.addNotes('AI に任せる範囲が広いほど、決まりが大事です。強制 push が環境側で止められたときも、通常のマージで対応しました。main への取り込みは「取り込んで」と言われたときだけ行います。');
 
 // 11b. AI ドリブンで AWS を作るなら
 s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'まとめ' });
@@ -562,7 +500,6 @@ txt(s, 'このラボで実際にやったこと', { x: 0.75, y: 2.92, w: 3.9, h:
 const awsDone = [
   'ALB を aws-cli の構文で作れる模擬装置にし、本物の HTTP で振り分けを確認',
   'aws-cli が読む定義(botocore)と突き合わせ、足りない項目を直した',
-  'AWS の IP 範囲(ip-ranges.json)を地図に重ねた',
   '本物の AWS への構築はまだしていない',
 ];
 txt(s, awsDone.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsDone.length - 1 } })), { x: 0.75, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
@@ -575,20 +512,20 @@ const awsGuard = [
 ];
 txt(s, 'AWS の Kiro を使う場合は別資料「Kiro で AWS を作る」(docs/ai-driven-dev-kiro.pptx)', { x: 0.5, y: 5.05, w: 6, h: 0.2, fontSize: 9, color: C.accent1 });
 txt(s, awsGuard.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < awsGuard.length - 1 } })), { x: 5.4, y: 3.3, w: 3.95, h: 1.65, fontSize: 10.5, paraSpaceAfter: 4 });
-s.addNotes('AWS の構築も、この資料と同じ流れで AI ドリブンにできます。人が要件を言い、Claude が Terraform などを書き、サンドボックスで fmt・validate・plan を流し、模擬環境で試します。CI で lint やセキュリティ検査を通し、plan の結果を PR に載せます。人が plan を見て apply を承認し、Claude が aws の describe 系コマンドで出来上がりを確かめて記録を残します。このラボで実際にやったのは、ALB を aws-cli の構文で作れる模擬装置にして本物の HTTP で振り分けを確かめたこと、aws-cli が読む定義と突き合わせたこと、AWS の IP 範囲を地図に重ねたことまでで、本物の AWS への構築はまだしていません。本番でやるなら、AI に渡す鍵は読み取り用だけにして apply は人の承認のあとにする、鍵はチャットに貼らない、外への通信は AWS の API だけ開ける、費用と削除は人が確かめる、の 4 つを守ります。詳しくは docs/ai-driven-aws.md にあります。');
+s.addNotes('AWS の構築も、この資料と同じ流れで AI ドリブンにできます。人が要件を言い、Claude が Terraform などを書き、サンドボックスで fmt・validate・plan を流し、模擬環境で試します。CI で lint やセキュリティ検査を通し、plan の結果を PR に載せます。人が plan を見て apply を承認し、Claude が aws の describe 系コマンドで出来上がりを確かめて記録を残します。このラボで実際にやったのは、ALB を aws-cli の構文で作れる模擬装置にして本物の HTTP で振り分けを確かめたことと、aws-cli が読む定義と突き合わせたことまでで、本物の AWS への構築はまだしていません。本番でやるなら、AI に渡す鍵は読み取り用だけにして apply は人の承認のあとにする、鍵はチャットに貼らない、外への通信は AWS の API だけ開ける、費用と削除は人が確かめる、の 4 つを守ります。詳しくは docs/ai-driven-aws.md にあります。');
 
 // 12. 次の一手
 s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: 'まとめ' });
 s.addText('次の一手', { placeholder: 'title' });
 s.addText([
-  { text: 'gNMI の 1 秒カウンタをニルヴァーナの画面へ', options: { bullet: true, breakLine: true } },
-  { text: 'Streamlit でカウンタ履歴のページ', options: { bullet: true, breakLine: true } },
-  { text: '全体テストの並列化で 17 分を短く', options: { bullet: true } },
+  { text: '全体テストを並列化して、CI の約 20 分を短く', options: { bullet: true, breakLine: true } },
+  { text: 'サンドボックスの性能の壁: 中継を非同期 I/O に作り替える', options: { bullet: true, breakLine: true } },
+  { text: 'AWS は plan までを自動に、apply は人の承認で', options: { bullet: true } },
 ], { placeholder: 'body', paraSpaceAfter: 6 });
 hex(s, 7.75, 0.45, 0.9, C.accent1, '', 'motif hex 1');
 hex(s, 8.55, 0.95, 0.65, C.accent2, '', 'motif hex 2');
 hex(s, 7.95, 1.25, 0.5, C.accent3, '', 'motif hex 3');
-s.addNotes('次は、今日作った gNMI の 1 秒カウンタをニルヴァーナの画面に取り込むこと、Streamlit でカウンタ履歴のページを作ること、全体テストを並列化して 17 分を短くすることを考えています。');
+s.addNotes('次は三つです。全体テストを並列化して、push のたびに約 20 分かかる CI を短くすること。サンドボックスの性能の壁になっている中継の作り(1 接続ごとにスレッド 2 本)を非同期 I/O に作り替えること。AWS の構築では、plan までを AI と CI で自動にし、apply は人の承認のあとにする流れを作ることです。');
 
 (async () => {
   await pres.writeFile({ fileName: OUT });
